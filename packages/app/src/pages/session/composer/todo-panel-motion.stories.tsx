@@ -2,7 +2,7 @@
 import { createEffect, createMemo, onCleanup } from "solid-js"
 import { createStore } from "solid-js/store"
 import type { Todo } from "@opencode-ai/sdk/v2"
-import { useServerSync } from "@/context/global-sync"
+import { useServerSync } from "@/context/server-sync"
 import { PromptInput } from "@/components/prompt-input"
 import { usePrompt } from "@/context/prompt"
 import {

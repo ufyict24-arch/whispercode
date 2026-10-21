@@ -812,9 +812,6 @@ export const dict = {
   "settings.general.row.newInterfaceNotice.dismiss": "Verwerfen",
   "settings.general.row.pinchZoom.title": "Zoom per Fingergeste",
   "settings.general.row.pinchZoom.description": "Zoomen per Zwei-Finger- und Ctrl-Scroll-Geste erlauben",
-  "settings.general.row.showSessionProgressBar.title": "Sitzungsfortschrittsleiste anzeigen",
-  "settings.general.row.showSessionProgressBar.description":
-    "Die animierte Fortschrittsleiste oben in der Sitzung anzeigen, wenn der Agent arbeitet",
   "settings.general.row.wayland.title": "Natives Wayland verwenden",
   "settings.general.row.wayland.description": "X11-Fallback unter Wayland deaktivieren. Ein Neustart ist erforderlich.",
   "settings.general.row.wayland.tooltip":

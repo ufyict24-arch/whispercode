@@ -176,7 +176,7 @@ export function seedActiveSessionStatuses(
   }
 }
 
-function makeQueryOptionsApi(
+export function makeQueryOptionsApi(
   scope: ServerScope,
   serverSDK: () => OpencodeClient,
   serverAPI: ServerApi,

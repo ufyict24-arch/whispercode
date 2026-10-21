@@ -10,13 +10,13 @@ import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { InlineInput } from "@opencode-ai/ui/inline-input"
 import { Spinner } from "@opencode-ai/ui/spinner"
-import { SessionTurn } from "@opencode-ai/ui/session-turn"
+import { SessionTurn } from "@opencode-ai/session-ui/session-turn"
 import { ScrollView } from "@opencode-ai/ui/scroll-view"
 import { TextField } from "@opencode-ai/ui/text-field"
 import type { AssistantMessage, Message as MessageType, Part, TextPart, UserMessage } from "@opencode-ai/sdk/v2"
 import { showToast } from "@opencode-ai/ui/toast"
-import { Binary } from "@opencode-ai/shared/util/binary"
-import { getFilename } from "@opencode-ai/shared/util/path"
+import { Binary } from "@opencode-ai/core/util/binary"
+import { getFilename } from "@opencode-ai/core/util/path"
 import { Popover as KobaltePopover } from "@kobalte/core/popover"
 import { shouldMarkBoundaryGesture, normalizeWheelDelta } from "@/pages/session/message-gesture"
 import { SessionContextUsage } from "@/components/session-context-usage"
@@ -250,7 +250,7 @@ export function MessageTimeline(props: {
   const sessionMessages = createMemo(() => {
     const id = sessionID()
     if (!id) return emptyMessages
-    return sync.data.message[id] ?? emptyMessages
+    return sync().data.message[id] ?? emptyMessages
   })
   const pending = createMemo(() =>
     sessionMessages().findLast(
@@ -260,10 +260,10 @@ export function MessageTimeline(props: {
   const sessionStatus = createMemo(() => {
     const id = sessionID()
     if (!id) return idle
-    return sync.data.session_status[id] ?? idle
+    return sync().data.session_status[id] ?? idle
   })
   const working = createMemo(() => sessionStatus().type !== "idle")
-  const tint = createMemo(() => messageAgentColor(sessionMessages(), sync.data.agent))
+  const tint = createMemo(() => messageAgentColor(sessionMessages(), sync().data.agent))
 
   const [timeoutDone, setTimeoutDone] = createSignal(true)
 
@@ -302,29 +302,29 @@ export function MessageTimeline(props: {
   const info = createMemo(() => {
     const id = sessionID()
     if (!id) return
-    return sync.session.get(id)
+    return sync().session.get(id)
   })
   const titleValue = createMemo(() => info()?.title)
   const titleLabel = createMemo(() => sessionTitle(titleValue()))
   const shareUrl = createMemo(() => info()?.share?.url)
-  const shareEnabled = createMemo(() => sync.data.config.share !== "disabled")
+  const shareEnabled = createMemo(() => sync().data.config.share !== "disabled")
   const parentID = createMemo(() => info()?.parentID)
   const parent = createMemo(() => {
     const id = parentID()
     if (!id) return
-    return sync.session.get(id)
+    return sync().session.get(id)
   })
   const parentMessages = createMemo(() => {
     const id = parentID()
     if (!id) return emptyMessages
-    return sync.data.message[id] ?? emptyMessages
+    return sync().data.message[id] ?? emptyMessages
   })
   const parentTitle = createMemo(() => sessionTitle(parent()?.title) ?? language.t("command.session.new"))
   const childTaskDescription = createMemo(() => {
     const id = sessionID()
     if (!id) return
     return parentMessages()
-      .flatMap((message) => sync.data.part[message.id] ?? [])
+      .flatMap((message) => sync().data.part[message.id] ?? [])
       .map((part) => taskDescription(part, id))
       .findLast((value): value is string => !!value)
   })
@@ -375,7 +375,7 @@ export function MessageTimeline(props: {
   const viewShare = () => {
     const url = shareUrl()
     if (!url) return
-    platform.openLink(url)
+    platform.openExternal(url)
   }
 
   const errorMessage = (err: unknown) => {
@@ -388,14 +388,14 @@ export function MessageTimeline(props: {
   }
 
   const shareMutation = useMutation(() => ({
-    mutationFn: (id: string) => globalSDK.client.session.share({ sessionID: id, directory: sdk.directory }),
+    mutationFn: (id: string) => globalSDK.client.session.share({ sessionID: id, directory: sdk().directory }),
     onError: (err) => {
       console.error("Failed to share session", err)
     },
   }))
 
   const unshareMutation = useMutation(() => ({
-    mutationFn: (id: string) => globalSDK.client.session.unshare({ sessionID: id, directory: sdk.directory }),
+    mutationFn: (id: string) => globalSDK.client.session.unshare({ sessionID: id, directory: sdk().directory }),
     onError: (err) => {
       console.error("Failed to unshare session", err)
     },
@@ -403,9 +403,9 @@ export function MessageTimeline(props: {
 
   const titleMutation = useMutation(() => ({
     mutationFn: (input: { id: string; title: string }) =>
-      sdk.client.session.update({ sessionID: input.id, title: input.title }),
+      sdk().client.session.update({ sessionID: input.id, title: input.title }),
     onSuccess: (_, input) => {
-      sync.set(
+      sync().set(
         produce((draft) => {
           const index = draft.session.findIndex((s) => s.id === input.id)
           if (index !== -1) draft.session[index].title = input.title
@@ -455,8 +455,8 @@ export function MessageTimeline(props: {
       () => [parentID(), childTaskDescription()] as const,
       ([id, description]) => {
         if (!id || description) return
-        if (sync.data.message[id] !== undefined) return
-        void sync.session.sync(id)
+        if (sync().data.message[id] !== undefined) return
+        void sync().session.sync(id)
       },
       { defer: true },
     ),
@@ -504,17 +504,17 @@ export function MessageTimeline(props: {
   }
 
   const archiveSession = async (sessionID: string) => {
-    const session = sync.session.get(sessionID)
+    const session = sync().session.get(sessionID)
     if (!session) return
 
-    const sessions = sync.data.session ?? []
+    const sessions = sync().data.session ?? []
     const index = sessions.findIndex((s) => s.id === sessionID)
     const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
 
-    await sdk.client.session
+    await sdk().client.session
       .update({ sessionID, time: { archived: Date.now() } })
       .then(() => {
-        sync.set(
+        sync().set(
           produce((draft) => {
             const index = draft.session.findIndex((s) => s.id === sessionID)
             if (index !== -1) draft.session.splice(index, 1)
@@ -531,14 +531,14 @@ export function MessageTimeline(props: {
   }
 
   const deleteSession = async (sessionID: string) => {
-    const session = sync.session.get(sessionID)
+    const session = sync().session.get(sessionID)
     if (!session) return false
 
-    const sessions = (sync.data.session ?? []).filter((s) => !s.parentID && !s.time?.archived)
+    const sessions = (sync().data.session ?? []).filter((s) => !s.parentID && !s.time?.archived)
     const index = sessions.findIndex((s) => s.id === sessionID)
     const nextSession = index === -1 ? undefined : (sessions[index + 1] ?? sessions[index - 1])
 
-    const result = await sdk.client.session
+    const result = await sdk().client.session
       .delete({ sessionID })
       .then((x) => x.data)
       .catch((err) => {
@@ -551,7 +551,7 @@ export function MessageTimeline(props: {
 
     if (!result) return false
 
-    sync.set(
+    sync().set(
       produce((draft) => {
         const removed = new Set<string>([sessionID])
 
@@ -598,7 +598,7 @@ export function MessageTimeline(props: {
 
   function DialogDeleteSession(props: { sessionID: string }) {
     const name = createMemo(
-      () => sessionTitle(sync.session.get(props.sessionID)?.title) ?? language.t("command.session.new"),
+      () => sessionTitle(sync().session.get(props.sessionID)?.title) ?? language.t("command.session.new"),
     )
     const handleDelete = async () => {
       await deleteSession(props.sessionID)
@@ -724,7 +724,12 @@ export function MessageTimeline(props: {
                   "md:max-w-200 md:mx-auto 2xl:max-w-[1000px]": props.centered,
                 }}
               >
-                <Show when={workingStatus() !== "hidden" && settings.general.showSessionProgressBar()}>
+                <Show
+                  when={
+                    workingStatus() !== "hidden" &&
+                    (settings.general as { showSessionProgressBar?: () => boolean }).showSessionProgressBar?.() !== false
+                  }
+                >
                   <div
                     data-component="session-progress"
                     data-state={workingStatus()}
@@ -1027,7 +1032,7 @@ export function MessageTimeline(props: {
               <For each={rendered()}>
                 {(messageID) => {
                   const active = createMemo(() => activeMessageID() === messageID)
-                  const comments = createMemo(() => messageComments(sync.data.part[messageID] ?? []), [], {
+                  const comments = createMemo(() => messageComments(sync().data.part[messageID] ?? []), [], {
                     equals: (a, b) =>
                       a.length === b.length &&
                       a.every(

@@ -1726,11 +1726,12 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   type="button"
                   variant="ghost"
                   onClick={() => {
-                    if (!params.id) {
-                      permission.toggleAutoAcceptDirectory(sdk.directory)
+                    const id = props.controls.session.id
+                    if (!id) {
+                      permission.toggleAutoAcceptDirectory(sdk().directory)
                       return
                     }
-                    permission.toggleAutoAccept(params.id, sdk.directory)
+                    permission.toggleAutoAccept(id, sdk().directory)
                   }}
                   classList={{
                     "size-8 p-0 flex items-center justify-center": true,

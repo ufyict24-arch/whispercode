@@ -221,7 +221,7 @@ export default function LegacyLayout(props: ParentProps) {
     }
 
     if (value.session) {
-      const session = await globalSDK.client.session
+      const session = await serverSDK().client.session
         .get({ sessionID: value.session })
         .then((x) => x.data)
         .catch(() => undefined)

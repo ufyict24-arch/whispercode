@@ -94,7 +94,6 @@ import { TerminalPanelV2 } from "@/pages/session/terminal-panel-v2"
 import { useComposerCommands } from "@/pages/session/use-composer-commands"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
-import { usePlatform } from "@/context/platform"
 import { Identifier } from "@/utils/id"
 import { diffs as list } from "@/utils/diffs"
 import { diffCount, MOBILE_REVIEW_FILE_LIMIT, mobileReviewLimit } from "@/utils/mobile-review-limit"
@@ -374,7 +373,6 @@ export default function Page() {
   const comments = useComments()
   const command = useCommand()
   const terminal = useTerminal()
-  const platform = usePlatform()
   const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string }>()
   const location = useLocation()
   const navigate = useNavigate()
@@ -691,13 +689,13 @@ export default function Page() {
   const activeReviewLimit = createMemo<ReviewLimit | undefined>(() => {
     if (!mobilePlatform()) return
 
-    if (store.changes === "turn") {
+    if (reviewMode() === "turn") {
       const limit = mobileReviewLimit(diffCount(turnDiffSource()), true)
       if (limit) return { mode: "turn", ...limit }
     }
 
     const limit = store.reviewLimit
-    if (limit?.mode === store.changes) return limit
+    if (limit?.mode === reviewMode()) return limit
   })
   const nogit = createMemo(() => {
     const project = sync().project
@@ -730,7 +728,7 @@ export default function Page() {
       ["session-vcs", sdk().directory, sync().data.vcs?.branch ?? "", sync().data.vcs?.default_branch ?? ""] as const,
   )
   const fallbackGitDiff = async () => {
-    const status = await sdk.client.file
+    const status = await sdk().client.file
       .status()
       .then((result) => result.data ?? [])
       .catch(() => [])
@@ -746,10 +744,10 @@ export default function Page() {
             additions: item.added,
             deletions: item.removed,
             status: item.status,
-          })[0]
+          })[0] as VcsFileDiff | undefined
         }
 
-        const content = await sdk.client.file
+        const content = await sdk().client.file
           .read({ path: item.path })
           .then((result) => result.data)
           .catch(() => undefined)
@@ -773,7 +771,7 @@ export default function Page() {
           additions: item.added,
           deletions: item.removed,
           status: item.status,
-        })[0]
+        })[0] as VcsFileDiff | undefined
       }),
     )
 
@@ -790,11 +788,11 @@ export default function Page() {
         ? async () => {
             try {
               if (mode === "git" && mobilePlatform()) {
-                const status = await sdk.client.file.status().then((result) => result.data ?? [])
+                const status = await sdk().client.file.status().then((result) => result.data ?? [])
                 if (setReviewLimit("git", status.length)) return []
               }
 
-              const data = await sdk.client.vcs.diff({ mode }).then((result) => result.data ?? [])
+              const data = await sdk().client.vcs.diff({ mode }).then((result) => result.data ?? [])
               const diffs = list(data)
               if (setReviewLimit(mode, diffs.length)) return []
               if (diffs.length > 0 || mode !== "git") return diffs
@@ -874,7 +872,7 @@ export default function Page() {
   }
 
   createEffect(
-    on([sessionKey, wantsReview, () => store.changes] as const, ([, wants, changes]) => {
+    on([sessionKey, wantsReview, reviewMode] as const, ([, wants, changes]) => {
       if (!wants) return
       if (changes !== "git" && changes !== "branch") return
       refreshVcs()
@@ -1609,7 +1607,7 @@ export default function Page() {
     if (!id) return
 
     if (!wantsReview()) return
-    if (mobilePlatform() && store.changes !== "turn") return
+    if (mobilePlatform() && reviewMode() !== "turn") return
     if (mobilePlatform() && activeReviewLimit()) return
     if (sync().data.session_diff[id] !== undefined) return
     if (sync().status === "loading") return
@@ -1626,7 +1624,7 @@ export default function Page() {
         diffFrame = undefined
         diffTimer = undefined
         if (!wants) return
-        if (mobilePlatform() && store.changes !== "turn") return
+        if (mobilePlatform() && reviewMode() !== "turn") return
         if (mobilePlatform() && activeReviewLimit()) return
 
         const id = params.id
