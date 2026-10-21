@@ -1,3 +1,6 @@
+// UPSTREAM-DIVERGENCE-FILE: Added after upstream sync 6b9ce5e63. Keep the WhisperCode mobile refresh,
+// phone settings tab, and push-notification keys when merging upstream locale updates.
+
 export const dict = {
   "desktop.menu.app": "OpenCode",
   "desktop.menu.file": "ไฟล์",
@@ -452,6 +455,7 @@ export const dict = {
   "dialog.server.add.namePlaceholder": "Localhost",
   "dialog.server.add.username": "ชื่อผู้ใช้ (ไม่บังคับ)",
   "dialog.server.add.password": "รหัสผ่าน (ไม่บังคับ)",
+
   "dialog.server.edit.title": "แก้ไขเซิร์ฟเวอร์",
   "dialog.server.default.title": "เซิร์ฟเวอร์เริ่มต้น",
   "dialog.server.default.description":
@@ -755,6 +759,7 @@ export const dict = {
   "session.review.empty": "ยังไม่มีการเปลี่ยนแปลงในเซสชันนี้",
   "session.review.noVcs": "ไม่ตรวจพบระบบควบคุมเวอร์ชัน Git การเปลี่ยนแปลงจะไม่แสดง",
   "session.review.noSnapshot": "การติดตามสแนปชอตถูกปิดใช้งานในการกำหนดค่า ดังนั้นการเปลี่ยนแปลงเซสชันจึงไม่พร้อมใช้งาน",
+
   "session.review.noChanges": "ไม่มีการเปลี่ยนแปลง",
   "session.review.noUncommittedChanges": "ยังไม่มีการเปลี่ยนแปลงที่รอคอมมิต",
   "session.review.noBranchChanges": "ยังไม่มีการเปลี่ยนแปลงในสาขา",
@@ -769,6 +774,11 @@ export const dict = {
   "session.messages.loadEarlier": "โหลดข้อความก่อนหน้า",
   "session.messages.loading": "กำลังโหลดข้อความ...",
   "session.messages.jumpToLatest": "ไปที่ล่าสุด",
+  "voice.processing": "กำลังประมวลผล...",
+  "voice.listeningFor": "กำลังฟังเป็นภาษา {{label}}",
+  "voice.editLangInSettings": "แก้ไขภาษาได้ในการตั้งค่า",
+  "voice.processingShort": "กำลังประมวลผล",
+  "voice.stop": "หยุด",
 
   "session.context.addToContext": "เพิ่ม {{selection}} ไปยังบริบท",
   "session.todo.title": "สิ่งที่ต้องทำ",
@@ -806,6 +816,9 @@ export const dict = {
 
   "session.header.search.placeholder": "ค้นหา {{project}}",
   "session.header.searchFiles": "ค้นหาไฟล์",
+  // UPSTREAM-DIVERGENCE: Fork mobile builds add a manual session refresh action to replace the old
+  // pull-to-refresh path in shared UI.
+  "session.header.refresh": "รีเฟรช",
   "session.header.openIn": "เปิดใน",
   "session.header.open.action": "เปิด {{app}}",
   "session.header.open.ariaLabel": "เปิดใน {{app}}",
@@ -881,10 +894,14 @@ export const dict = {
 
   "app.name.desktop": "OpenCode Desktop",
 
+  // UPSTREAM-DIVERGENCE: Fork-only settings navigation labels for the WhisperCode phone tab.
+  "settings.section.whispercode": "WhisperCode",
+  "settings.section.mobile": "มือถือ",
   "settings.section.desktop": "เดสก์ท็อป",
   "settings.section.server": "เซิร์ฟเวอร์",
   "settings.tab.general": "ทั่วไป",
   "settings.tab.shortcuts": "ทางลัด",
+  "settings.tab.phone": "โทรศัพท์",
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "การรวม WSL",
   "settings.desktop.wsl.description": "เรียกใช้เซิร์ฟเวอร์ OpenCode ภายใน WSL บน Windows",
@@ -1023,6 +1040,109 @@ export const dict = {
   "settings.general.notifications.permissions.description": "แสดงการแจ้งเตือนระบบเมื่อต้องการสิทธิ์",
   "settings.general.notifications.errors.title": "ข้อผิดพลาด",
   "settings.general.notifications.errors.description": "แสดงการแจ้งเตือนระบบเมื่อเกิดข้อผิดพลาด",
+
+  // UPSTREAM-DIVERGENCE: Fork-only mobile push permission, relay, pairing, diagnostics, and routing
+  // strings used by the shared app package and native wrappers.
+  "settings.general.notifications.push.permission.title": "สิทธิ์การแจ้งเตือนแบบพุช",
+  "settings.general.notifications.push.permission.pending":
+    "กำลังตรวจสอบว่า WhisperCode สามารถแสดงการแจ้งเตือนบน iPhone เครื่องนี้ได้หรือไม่",
+  "settings.general.notifications.push.permission.notDetermined":
+    "เปิดใช้งานการแจ้งเตือนทั่วไปสำหรับการตอบกลับ การอนุมัติ คำถาม และข้อผิดพลาด",
+  "settings.general.notifications.push.permission.denied": "เปิดการแจ้งเตือนสำหรับ WhisperCode ในแอปการตั้งค่า iPhone",
+  "settings.general.notifications.push.permission.registering":
+    "ได้รับสิทธิ์แล้ว WhisperCode กำลังลงทะเบียนกับ Apple ให้เสร็จสิ้น",
+  "settings.general.notifications.push.permission.authorized": "พร้อมสำหรับการแจ้งเตือนทั่วไปบน iPhone เครื่องนี้",
+  "settings.general.notifications.push.permission.provisional":
+    "พร้อมสำหรับการแจ้งเตือนทั่วไปแบบเงียบบน iPhone เครื่องนี้",
+  "settings.general.notifications.push.permission.ephemeral":
+    "พร้อมสำหรับการแจ้งเตือนทั่วไปชั่วคราวบน iPhone เครื่องนี้",
+  "settings.general.notifications.push.permission.unsupported": "การแจ้งเตือนไม่สามารถใช้งานได้บนอุปกรณ์นี้",
+  "settings.general.notifications.push.generic.title": "ความเป็นส่วนตัว",
+  "settings.general.notifications.push.generic.description":
+    "การแจ้งเตือนจะเป็นแบบทั่วไปตามค่าเริ่มต้น ข้อความพรอมต์ ข้อความตอบกลับ เส้นทางไฟล์ และชื่อเซสชันจะอยู่บนอุปกรณ์เท่านั้น",
+  "settings.general.notifications.push.generic.value": "แบบทั่วไปเท่านั้น",
+  "settings.general.notifications.push.test.title": "ส่งการแจ้งเตือนทดสอบ",
+  "settings.general.notifications.push.test.description":
+    "ส่งการแจ้งเตือนผ่านรีเลย์จากโฮสต์ OpenCode ที่เชื่อมต่ออยู่ และตรวจสอบว่าเมื่อแตะแล้วจะนำคุณกลับมาที่ WhisperCode",
+  "settings.general.notifications.push.relay.title": "รีเลย์พุช",
+  "settings.general.notifications.push.relay.description.custom":
+    "ใช้ URL รีเลย์แบบกำหนดเองสำหรับการจับคู่และการส่งพุชในพื้นหลัง: {url}",
+  "settings.general.notifications.push.relay.description.guess":
+    "ใช้ค่าเริ่มต้นเป็นโฮสต์เซิร์ฟเวอร์ที่เชื่อมต่อบนพอร์ต 8787: {url}",
+  "settings.general.notifications.push.relay.description.empty":
+    "เชื่อมต่อกับเซิร์ฟเวอร์ก่อน หรือป้อน URL รีเลย์แบบกำหนดเองสำหรับการจับคู่และการส่งพุชในพื้นหลัง",
+  "settings.general.notifications.push.relay.action.auto": "ใช้ค่าเริ่มต้น",
+  "settings.general.notifications.push.pairing.title": "การจับคู่โทรศัพท์",
+  "settings.general.notifications.push.pairing.pending":
+    "กำลังตรวจสอบว่า iPhone เครื่องนี้ถูกจับคู่กับช่องทางพุชหรือไม่",
+  "settings.general.notifications.push.pairing.server":
+    "เชื่อมต่อกับเซิร์ฟเวอร์ OpenCode ก่อนเพื่อให้ WhisperCode จับคู่ได้สำเร็จ",
+  "settings.general.notifications.push.pairing.unpaired":
+    "แตะตั้งค่าครั้งเดียวแล้ว WhisperCode จะขอสิทธิ์ ติดตั้งการรวมโฮสต์ และจับคู่ iPhone เครื่องนี้โดยอัตโนมัติ",
+  "settings.general.notifications.push.pairing.paired":
+    "iPhone เครื่องนี้ถูกจับคู่กับโฮสต์ OpenCode ของคุณแล้ว WhisperCode จะซ่อมแซมการเชื่อมต่อโดยอัตโนมัติหากเกิดการเปลี่ยนแปลง",
+  "settings.general.notifications.push.pairing.retry":
+    "WhisperCode กำลังจับคู่โฮสต์สำหรับ iPhone เครื่องนี้ให้เสร็จสิ้น และจะลองใหม่จนกว่าจะสำเร็จ",
+  "settings.general.notifications.push.pairing.step.permission": "กำลังขอสิทธิ์การแจ้งเตือนจากการตั้งค่า iPhone",
+  "settings.general.notifications.push.pairing.step.register": "กำลังรอการลงทะเบียนพุชจาก Apple ให้เสร็จสิ้น",
+  "settings.general.notifications.push.pairing.step.begin": "กำลังเตรียมคำขอจับคู่ที่ปลอดภัยสำหรับ iPhone เครื่องนี้",
+  "settings.general.notifications.push.pairing.step.claim": "กำลังเชื่อมต่อ iPhone เครื่องนี้กับโฮสต์ OpenCode",
+  "settings.general.notifications.push.pairing.step.finish": "กำลังจับคู่บน iPhone เครื่องนี้ให้เสร็จสิ้น",
+  "settings.general.notifications.push.pairing.action.setup": "ตั้งค่า",
+  "settings.general.notifications.push.pairing.action.finish": "ตั้งค่าให้เสร็จสิ้น",
+  "settings.general.notifications.push.pairing.action.repair": "ซ่อมแซม",
+  "settings.general.notifications.push.pairing.action.pairing": "กำลังจับคู่...",
+  "settings.general.notifications.push.pairing.action.clear": "ลบการจับคู่",
+  "settings.general.notifications.push.pairing.action.clearing": "กำลังลบ...",
+  "settings.general.notifications.push.pairing.toast.cleared.title": "ลบการจับคู่แล้ว",
+  "settings.general.notifications.push.pairing.toast.cleared.description":
+    "ข้อมูลรับรองช่องทางพุชที่จัดเก็บไว้ถูกลบออกจาก iPhone เครื่องนี้แล้ว",
+  "settings.general.notifications.push.pairing.toast.paired.title": "จับคู่ iPhone แล้ว",
+  "settings.general.notifications.push.pairing.toast.paired.description":
+    "ตอนนี้ WhisperCode สามารถเชื่อมต่อ iPhone เครื่องนี้กับโฮสต์ OpenCode สำหรับการส่งพุชได้แล้ว",
+  "settings.general.notifications.push.action.enable": "เปิดใช้งาน",
+  "settings.general.notifications.push.action.openSettings": "เปิดการตั้งค่า",
+  "settings.general.notifications.push.action.enabled": "เปิดใช้งานแล้ว",
+  "settings.general.notifications.push.action.unavailable": "ไม่พร้อมใช้งาน",
+  "settings.general.notifications.push.action.checking": "กำลังตรวจสอบ...",
+  "settings.general.notifications.push.action.test": "ส่งทดสอบ",
+  "settings.general.notifications.push.action.sending": "กำลังส่ง...",
+  "settings.general.notifications.push.host.title": "การรวมโฮสต์",
+  "settings.general.notifications.push.host.description.missing":
+    "ติดตั้งปลั๊กอินชุมชนบนโฮสต์ OpenCode ที่เชื่อมต่ออยู่ เพื่อให้เหตุการณ์พุชทั่วไปที่สำคัญสามารถส่งต่อได้",
+  "settings.general.notifications.push.host.description.installed":
+    "ปลั๊กอินชุมชนถูกแสดงอยู่ในการกำหนดค่าส่วนกลางของ OpenCode สำหรับโฮสต์นี้",
+  "settings.general.notifications.push.host.description.updating":
+    "กำลังอัปเดตการกำหนดค่าส่วนกลางของ OpenCode สำหรับปลั๊กอินโฮสต์",
+  "settings.general.notifications.push.host.action.install": "เพิ่มในการกำหนดค่า",
+  "settings.general.notifications.push.host.action.installing": "กำลังติดตั้ง...",
+  "settings.general.notifications.push.host.action.copy": "คัดลอกคำสั่ง",
+  "settings.general.notifications.push.host.action.copying": "กำลังคัดลอก...",
+  "settings.general.notifications.push.host.action.remove": "ลบ",
+  "settings.general.notifications.push.host.action.removing": "กำลังลบ...",
+  "settings.general.notifications.push.host.toast.installed.title": "เพิ่มปลั๊กอินโฮสต์แล้ว",
+  "settings.general.notifications.push.host.toast.installed.description":
+    "การกำหนดค่าส่วนกลางของ OpenCode ตอนนี้รวมปลั๊กอินพุชของ WhisperCode แล้ว",
+  "settings.general.notifications.push.host.toast.removed.title": "ลบปลั๊กอินโฮสต์แล้ว",
+  "settings.general.notifications.push.host.toast.removed.description":
+    "การกำหนดค่าส่วนกลางของ OpenCode ไม่รวมปลั๊กอินพุชของ WhisperCode อีกต่อไป",
+  "settings.general.notifications.push.host.toast.copied.title": "คัดลอกคำสั่งติดตั้งแล้ว",
+  "settings.general.notifications.push.host.toast.copied.description":
+    "เรียกใช้คำสั่งที่คัดลอกบนเครื่องที่โฮสต์ OpenCode",
+  "settings.general.notifications.push.host.toast.copyFailed.title": "ไม่สามารถคัดลอกคำสั่งติดตั้ง",
+  "settings.general.notifications.push.host.toast.copyFailed.description":
+    "คัดลอกคำสั่งจาก WhisperCode ด้วยตนเองและเรียกใช้บนโฮสต์ OpenCode",
+  "settings.general.notifications.push.toast.sent.title": "กำหนดเวลาส่งการแจ้งเตือนทดสอบแล้ว",
+  "settings.general.notifications.push.toast.sent.description":
+    "ล็อก iPhone ของคุณหรือเปิดแอปไว้เพื่อตรวจสอบแบนเนอร์และขั้นตอนการแตะ",
+  "settings.general.notifications.push.toast.failed.title": "ไม่สามารถส่งการแจ้งเตือนทดสอบ",
+  "settings.general.notifications.push.toast.failed.description":
+    "เปิดการแจ้งเตือน iPhone สำหรับ WhisperCode แล้วลองอีกครั้ง",
+
+  "notification.push.route.title": "การแจ้งเตือน OpenCode",
+  "notification.push.route.server": "WhisperCode ยังไม่สามารถจับคู่การแจ้งเตือนนี้กับเซิร์ฟเวอร์ที่เชื่อมต่ออยู่ได้",
+  "notification.push.route.session": "WhisperCode ยังไม่สามารถกู้คืนเซสชันนั้นได้ จึงเปิดหน้าแรกของเซิร์ฟเวอร์แทน",
+  "settings.whispercode.mobile.unavailable": "แท็บนี้ใช้งานได้เฉพาะบน WhisperCode เวอร์ชันมือถือ",
 
   "settings.general.sounds.agent.title": "เอเจนต์",
   "settings.general.sounds.agent.description": "เล่นเสียงเมื่อเอเจนต์เสร็จสิ้นหรือต้องการความสนใจ",

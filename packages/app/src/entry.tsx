@@ -12,6 +12,10 @@ import { authFromToken } from "@/utils/server"
 import pkg from "../package.json"
 import { ServerConnection } from "./context/server"
 
+// UPSTREAM-DIVERGENCE-FILE: The web entrypoint still implements the upstream browser notification path,
+// but it now accepts the fork's richer notify signature so shared code can call the same API from web
+// and mobile builds after upstream sync 6b9ce5e63.
+
 const DEFAULT_SERVER_URL_KEY = "opencode.settings.dat:defaultServerUrl"
 
 const getLocale = () => {
@@ -55,7 +59,11 @@ const setStorage = (key: string, value: string | null) => {
 const readDefaultServerUrl = () => getStorage(DEFAULT_SERVER_URL_KEY)
 const writeDefaultServerUrl = (url: string | null) => setStorage(DEFAULT_SERVER_URL_KEY, url)
 
-const notify: Platform["notify"] = async (title, description, onClick) => {
+const notify: Platform["notify"] = async (title, description, href, opts) => {
+  // UPSTREAM-DIVERGENCE: Web ignores the mobile-only notify metadata, but keeping the argument here lets
+  // shared app code call platform.notify uniformly across browser, iOS, and Android wrappers.
+  void opts
+
   if (!("Notification" in window)) return
 
   const permission =
@@ -75,7 +83,8 @@ const notify: Platform["notify"] = async (title, description, onClick) => {
 
   notification.onclick = () => {
     window.focus()
-    onClick?.()
+    // UPSTREAM-DIVERGENCE: mobile notify passes an href to navigate to instead of an onClick callback.
+    if (href) window.location.href = href
     notification.close()
   }
 }

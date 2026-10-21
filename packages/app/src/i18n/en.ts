@@ -688,6 +688,8 @@ export const dict = {
   "session.review.noChanges": "No changes",
   "session.review.noUncommittedChanges": "No uncommitted changes yet",
   "session.review.noBranchChanges": "No branch changes yet",
+  "session.review.tooManyFilesMobile":
+    "This change set has {{count}} files. Mobile review is limited to {{limit}} files to keep the app responsive.",
 
   "session.files.selectToOpen": "Select a file to open",
   "session.files.all": "All files",
@@ -699,6 +701,11 @@ export const dict = {
   "session.messages.loadEarlier": "Load earlier messages",
   "session.messages.loading": "Loading messages...",
   "session.messages.jumpToLatest": "Jump to latest",
+  "voice.processing": "Processing...",
+  "voice.listeningFor": "Listening for {{label}}",
+  "voice.editLangInSettings": "Edit lang in settings",
+  "voice.processingShort": "Processing",
+  "voice.stop": "Stop",
 
   "session.context.addToContext": "Add {{selection}} to context",
   "session.todo.title": "Todos",
@@ -738,6 +745,9 @@ export const dict = {
 
   "session.header.search.placeholder": "Search {{project}}",
   "session.header.searchFiles": "Search files",
+  // UPSTREAM-DIVERGENCE: Fork mobile builds add a manual session refresh action to replace the old
+  // pull-to-refresh path in shared UI.
+  "session.header.refresh": "Refresh",
   "session.header.openIn": "Open in",
   "session.header.open.action": "Open {{app}}",
   "session.header.open.ariaLabel": "Open in {{app}}",
@@ -891,7 +901,12 @@ export const dict = {
 
   "settings.section.desktop": "Desktop",
   "settings.section.server": "Server",
+  // UPSTREAM-DIVERGENCE: Fork-only settings navigation labels for the WhisperCode phone tab.
+  "settings.section.whispercode": "WhisperCode",
+  "settings.section.mobile": "Mobile",
   "settings.tab.general": "General",
+  "settings.tab.phone": "Phone",
+  "settings.title.phone": "Phone Notifications",
   "settings.tab.shortcuts": "Shortcuts",
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "WSL integration",
@@ -1033,6 +1048,108 @@ export const dict = {
   "settings.general.notifications.permissions.description": "Show system notification when a permission is required",
   "settings.general.notifications.errors.title": "Errors",
   "settings.general.notifications.errors.description": "Show system notification when an error occurs",
+  // UPSTREAM-DIVERGENCE: Fork-only mobile push permission, relay, pairing, diagnostics, and routing
+  // strings used by the shared app package and native wrappers.
+  "settings.general.notifications.push.permission.title": "Push permission",
+  "settings.general.notifications.push.permission.pending":
+    "Checking whether WhisperCode can show notifications on this iPhone",
+  "settings.general.notifications.push.permission.notDetermined":
+    "Enable generic alerts for responses, approvals, questions, and errors",
+  "settings.general.notifications.push.permission.denied":
+    "Turn on notifications for WhisperCode in the iPhone Settings app",
+  "settings.general.notifications.push.permission.registering":
+    "Permission is granted. WhisperCode is finishing registration with Apple.",
+  "settings.general.notifications.push.permission.authorized": "Ready for generic alerts on this iPhone",
+  "settings.general.notifications.push.permission.provisional": "Ready for quiet generic alerts on this iPhone",
+  "settings.general.notifications.push.permission.ephemeral": "Ready for temporary generic alerts on this iPhone",
+  "settings.general.notifications.push.permission.unsupported": "Notifications are unavailable on this device",
+  "settings.general.notifications.push.permission.ios":
+    "If you skipped notification setup during onboarding, you can finish it here. WhisperCode will guide you through permissions and install an OpenCode plugin on your server.",
+  "settings.general.notifications.push.generic.title": "Privacy",
+  "settings.general.notifications.push.generic.description":
+    "Alerts stay generic by default. Prompt text, response text, file paths, and session titles stay on-device.",
+  "settings.general.notifications.push.generic.value": "Generic only",
+  "settings.general.notifications.push.test.title": "Send test notification",
+  "settings.general.notifications.push.test.description":
+    "Send a relay-backed alert from the connected OpenCode host and verify that tapping it brings you back to WhisperCode",
+  "settings.general.notifications.push.relay.title": "Push relay",
+  "settings.general.notifications.push.relay.description.custom":
+    "Using a custom relay URL for pairing and background push delivery: {url}",
+  "settings.general.notifications.push.relay.description.guess":
+    "Defaults to the connected server host on port 8787: {url}",
+  "settings.general.notifications.push.relay.description.empty":
+    "Connect to a server first, or enter a custom relay URL for pairing and background push delivery.",
+  "settings.general.notifications.push.relay.action.auto": "Use Default",
+  "settings.general.notifications.push.pairing.title": "Phone pairing",
+  "settings.general.notifications.push.pairing.pending": "Checking whether this iPhone is paired to a push channel.",
+  "settings.general.notifications.push.pairing.server":
+    "Connect to an OpenCode server first so WhisperCode can finish pairing.",
+  "settings.general.notifications.push.pairing.unpaired":
+    "Tap Set Up once and WhisperCode will request permission, install an OpenCode plugin on your server, and pair this iPhone automatically.",
+  "settings.general.notifications.push.pairing.paired":
+    "This iPhone is paired to your OpenCode host. WhisperCode will repair the connection automatically if it drifts.",
+  "settings.general.notifications.push.pairing.retry":
+    "WhisperCode has a pending pair request for this iPhone. Tap Finish Setup to resume and verify the host install.",
+  "settings.general.notifications.push.pairing.step.permission":
+    "Requesting notification permission from iPhone Settings.",
+  "settings.general.notifications.push.pairing.step.register": "Waiting for Apple push registration to finish.",
+  "settings.general.notifications.push.pairing.step.begin": "Preparing a secure pairing request for this iPhone.",
+  "settings.general.notifications.push.pairing.step.claim": "Connecting this iPhone to the OpenCode host.",
+  "settings.general.notifications.push.pairing.step.finish": "Finishing pairing on this iPhone.",
+  "settings.general.notifications.push.pairing.action.setup": "Set Up",
+  "settings.general.notifications.push.pairing.action.finish": "Finish Setup",
+  "settings.general.notifications.push.pairing.action.repair": "Repair",
+  "settings.general.notifications.push.pairing.action.pairing": "Pairing...",
+  "settings.general.notifications.push.pairing.action.clear": "Remove Pairing",
+  "settings.general.notifications.push.pairing.action.clearing": "Removing...",
+  "settings.general.notifications.push.pairing.toast.cleared.title": "Pairing removed",
+  "settings.general.notifications.push.pairing.toast.cleared.description":
+    "Stored push channel credentials were removed from this iPhone.",
+  "settings.general.notifications.push.pairing.toast.paired.title": "iPhone paired",
+  "settings.general.notifications.push.pairing.toast.paired.description":
+    "WhisperCode can now keep this iPhone connected to the OpenCode host for push delivery.",
+  "settings.general.notifications.push.action.enable": "Enable",
+  "settings.general.notifications.push.action.openSettings": "Open Settings",
+  "settings.general.notifications.push.action.enabled": "Enabled",
+  "settings.general.notifications.push.action.unavailable": "Unavailable",
+  "settings.general.notifications.push.action.checking": "Checking...",
+  "settings.general.notifications.push.action.test": "Send test",
+  "settings.general.notifications.push.action.sending": "Sending...",
+  "settings.general.notifications.push.host.title": "Host integration",
+  "settings.general.notifications.push.host.description.missing":
+    "Install the community plugin on the connected OpenCode host so generic push-worthy events can be forwarded.",
+  "settings.general.notifications.push.host.description.installed":
+    "The community plugin is listed in OpenCode global config for this host.",
+  "settings.general.notifications.push.host.description.updating":
+    "Updating OpenCode global config for the host plugin.",
+  "settings.general.notifications.push.host.action.install": "Add to Config",
+  "settings.general.notifications.push.host.action.installing": "Installing...",
+  "settings.general.notifications.push.host.action.copy": "Copy Command",
+  "settings.general.notifications.push.host.action.copying": "Copying...",
+  "settings.general.notifications.push.host.action.remove": "Remove",
+  "settings.general.notifications.push.host.action.removing": "Removing...",
+  "settings.general.notifications.push.host.toast.installed.title": "Host plugin added",
+  "settings.general.notifications.push.host.toast.installed.description":
+    "OpenCode global config now includes the WhisperCode push plugin.",
+  "settings.general.notifications.push.host.toast.removed.title": "Host plugin removed",
+  "settings.general.notifications.push.host.toast.removed.description":
+    "OpenCode global config no longer includes the WhisperCode push plugin.",
+  "settings.general.notifications.push.host.toast.copied.title": "Installer command copied",
+  "settings.general.notifications.push.host.toast.copied.description":
+    "Run the copied command on the machine hosting OpenCode.",
+  "settings.general.notifications.push.host.toast.copyFailed.title": "Could not copy installer command",
+  "settings.general.notifications.push.host.toast.copyFailed.description":
+    "Copy the command manually from WhisperCode and run it on the OpenCode host.",
+  "settings.general.notifications.push.toast.sent.title": "Test notification scheduled",
+  "settings.general.notifications.push.toast.sent.description":
+    "Lock your iPhone or leave the app open to verify the banner and tap flow.",
+  "settings.general.notifications.push.toast.failed.title": "Could not send test notification",
+  "settings.general.notifications.push.toast.failed.description":
+    "Enable iPhone notifications for WhisperCode and try again.",
+  "notification.push.route.title": "OpenCode notification",
+  "notification.push.route.server": "WhisperCode could not match this notification to a connected server yet.",
+  "notification.push.route.session": "WhisperCode could not restore that session yet, so it opened the server home.",
+  "settings.whispercode.mobile.unavailable": "This tab is available on WhisperCode mobile builds.",
 
   "settings.general.sounds.agent.title": "Agent",
   "settings.general.sounds.agent.description": "Play sound when the agent is complete or needs attention",

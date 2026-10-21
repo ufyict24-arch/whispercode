@@ -18,6 +18,9 @@ import { type DraftTab, useTabs } from "./tabs"
 import { requireServerKey } from "@/utils/session-route"
 import type { ServerScope } from "@/utils/server-scope"
 
+// UPSTREAM-DIVERGENCE-FILE: Notification delivery now tags the fork's mobile push kinds so shared app
+// code can drive generic iOS/Android alerts after upstream sync 6b9ce5e63.
+
 type NotificationBase = {
   directory?: string
   session?: string
@@ -356,8 +359,15 @@ function createServerNotificationState(input: {
 
       const href = `/${base64Encode(directory)}/session/${sessionID}`
       if (settings.notifications.agent()) {
-        void platform.notify(language.t("notification.session.responseReady.title"), session.title ?? sessionID, () =>
-          input.navigate(href),
+        // UPSTREAM-DIVERGENCE: Preserve the complete kind so relay-backed mobile pushes can send a
+        // generic banner yet still route taps back to the finished session.
+        void platform.notify(
+          language.t("notification.session.responseReady.title"),
+          session.title ?? sessionID,
+          href,
+          {
+            kind: "complete",
+          },
         )
       }
     })
@@ -391,7 +401,11 @@ function createServerNotificationState(input: {
         (typeof error === "string" ? error : language.t("notification.session.error.fallbackDescription"))
       const href = sessionID ? `/${base64Encode(directory)}/session/${sessionID}` : `/${base64Encode(directory)}`
       if (settings.notifications.errors()) {
-        void platform.notify(language.t("notification.session.error.title"), description, () => input.navigate(href))
+        // UPSTREAM-DIVERGENCE: Errors stay tagged for the mobile fork's generic push channel even
+        // though upstream browser notifications simply ignore the extra metadata.
+        void platform.notify(language.t("notification.session.error.title"), description, href, {
+          kind: "error",
+        })
       }
     })
   }

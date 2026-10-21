@@ -5,6 +5,10 @@ import { useSDK } from "./sdk"
 import type { Message, Part } from "@opencode-ai/sdk/v2/client"
 import { messageKey } from "@/utils/session-message"
 
+
+// UPSTREAM-DIVERGENCE-FILE: Session sync carries fork-only resume/todo recovery semantics introduced
+// after upstream sync 6b9ce5e63. Preserve these cache rules when merging upstream sync behavior.
+
 const SKIP_PARTS = new Set(["patch", "step-start", "step-finish"])
 
 function sortParts(parts: Part[]) {
@@ -118,3 +122,4 @@ export const useSync = () => {
 }
 
 export type DirectorySync = ReturnType<ReturnType<typeof useSync>>
+

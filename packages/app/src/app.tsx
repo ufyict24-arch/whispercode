@@ -51,6 +51,9 @@ import { ModelsProvider } from "@/context/models"
 import { NotificationProvider } from "@/context/notification"
 import { PermissionProvider } from "@/context/permission"
 import { usePlatform } from "@/context/platform"
+// UPSTREAM-DIVERGENCE: WhisperCode push relay/pair providers for iOS/Android pairing flows.
+import { PushPairProvider } from "@/context/push-pair"
+import { PushRelayProvider } from "@/context/push-relay"
 import { PromptProvider } from "@/context/prompt"
 import { ServerConnection, ServerProvider, serverName, useServer } from "@/context/server"
 import { SettingsProvider, useSettings } from "@/context/settings"
@@ -314,10 +317,16 @@ function SharedProviders(props: ParentProps) {
   return (
     <>
       <BodyDesignClass />
-      <CommandProvider>
-        <DesktopCommands />
-        <HighlightsProvider>{props.children}</HighlightsProvider>
-      </CommandProvider>
+      {/* UPSTREAM-DIVERGENCE: WhisperCode inserts push relay/pair providers so the shared app
+          package can serve iOS/Android pairing flows without forking the route tree. */}
+      <PushRelayProvider>
+        <PushPairProvider>
+          <CommandProvider>
+            <DesktopCommands />
+            <HighlightsProvider>{props.children}</HighlightsProvider>
+          </CommandProvider>
+        </PushPairProvider>
+      </PushRelayProvider>
     </>
   )
 }

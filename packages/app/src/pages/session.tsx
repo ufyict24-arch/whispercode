@@ -94,8 +94,10 @@ import { TerminalPanelV2 } from "@/pages/session/terminal-panel-v2"
 import { useComposerCommands } from "@/pages/session/use-composer-commands"
 import { useSessionCommands } from "@/pages/session/use-session-commands"
 import { useSessionHashScroll } from "@/pages/session/use-session-hash-scroll"
+import { usePlatform } from "@/context/platform"
 import { Identifier } from "@/utils/id"
 import { diffs as list } from "@/utils/diffs"
+import { diffCount, MOBILE_REVIEW_FILE_LIMIT, mobileReviewLimit } from "@/utils/mobile-review-limit"
 import { Persist, persisted } from "@/utils/persist"
 import { extractPromptFromParts } from "@/utils/prompt"
 import { formatServerError, isLocalSessionNotFoundError, isSessionNotFoundError } from "@/utils/server-errors"
@@ -104,12 +106,17 @@ import { useUsageExceededDialogs } from "./session/usage-exceeded-dialogs"
 import { createSessionOwnership } from "./session/session-ownership"
 import { createSessionLineage } from "./session/session-lineage"
 
+// UPSTREAM-DIVERGENCE-FILE: The session page carries fork-only mobile resume and scroll behavior added
+// after upstream sync 6b9ce5e63. Preserve these paths when reconciling upstream timeline changes.
+
+const emptyUserMessages: UserMessage[] = []
 type FollowupItem = FollowupDraft & { id: string }
 type FollowupEdit = Pick<FollowupItem, "id" | "prompt" | "context">
 const emptyFollowups: FollowupItem[] = []
 
 type ChangeMode = "git" | "branch" | "turn"
 type VcsMode = "git" | "branch"
+type ReviewLimit = { mode: ChangeMode; count: number; limit: number }
 
 const sessionViewState = () => ({
   messageId: undefined as string | undefined,
@@ -367,6 +374,7 @@ export default function Page() {
   const comments = useComments()
   const command = useCommand()
   const terminal = useTerminal()
+  const platform = usePlatform()
   const [searchParams, setSearchParams] = useSearchParams<{ prompt?: string }>()
   const location = useLocation()
   const navigate = useNavigate()
@@ -407,6 +415,21 @@ export default function Page() {
 
   const workspaceTabs = createMemo(() => layout.tabs(workspaceKey))
   const sessionPanelKey = createMemo(() => (params.id ? `${serverSDK().scope}\0${params.id}` : undefined))
+  const RESUME_SYNC_COOLDOWN_MS = 1000
+  let lastResumeSync = 0
+
+  const refreshActiveSession = () => {
+    const id = params.id
+    if (!id) return
+    const now = Date.now()
+    if (now - lastResumeSync < RESUME_SYNC_COOLDOWN_MS) return
+    lastResumeSync = now
+    // UPSTREAM-DIVERGENCE: Mobile resume refreshes session info and todos together because
+    // iOS/Android can suspend the app while the host keeps streaming background work.
+    // sync() refreshes session info including status, so a separate status() call is redundant.
+    void sync().session.sync(id, { force: true })
+    void sync().session.todo(id, { force: true })
+  }
 
   createEffect(
     on(
@@ -601,6 +624,7 @@ export default function Page() {
     ...sessionViewState(),
     newSessionWorktree: "main",
     deferRender: false,
+    reviewLimit: undefined as ReviewLimit | undefined,
   })
 
   const [followup, setFollowup] = persisted(
@@ -649,7 +673,32 @@ export default function Page() {
     return open
   }, desktopReviewOpen())
 
-  const turnDiffs = createMemo(() => list(lastUserMessage()?.summary?.diffs))
+  const turnDiffSource = createMemo(() => lastUserMessage()?.summary?.diffs)
+  const turnDiffs = createMemo(() => list(turnDiffSource()))
+  // UPSTREAM-DIVERGENCE: Mobile webviews can stall or terminate when a power-user session tries to
+  // hydrate hundreds of file diffs. Keep this guard simple: above the cap, show a message instead.
+  const mobilePlatform = () => platform.platform === "ios" || platform.platform === "android"
+  const setReviewLimit = (mode: ChangeMode, count: number) => {
+    const limit = mobileReviewLimit(count, mobilePlatform())
+    if (!limit) {
+      if (store.reviewLimit?.mode === mode) setStore("reviewLimit", undefined)
+      return false
+    }
+
+    setStore("reviewLimit", { mode, ...limit })
+    return true
+  }
+  const activeReviewLimit = createMemo<ReviewLimit | undefined>(() => {
+    if (!mobilePlatform()) return
+
+    if (store.changes === "turn") {
+      const limit = mobileReviewLimit(diffCount(turnDiffSource()), true)
+      if (limit) return { mode: "turn", ...limit }
+    }
+
+    const limit = store.reviewLimit
+    if (limit?.mode === store.changes) return limit
+  })
   const nogit = createMemo(() => {
     const project = sync().project
     return !!project && project.vcs !== "git"
@@ -680,6 +729,56 @@ export default function Page() {
     () =>
       ["session-vcs", sdk().directory, sync().data.vcs?.branch ?? "", sync().data.vcs?.default_branch ?? ""] as const,
   )
+  const fallbackGitDiff = async () => {
+    const status = await sdk.client.file
+      .status()
+      .then((result) => result.data ?? [])
+      .catch(() => [])
+    if (setReviewLimit("git", status.length)) return []
+
+    const diffs = await Promise.all(
+      status.map(async (item): Promise<VcsFileDiff | undefined> => {
+        if (item.status === "deleted") {
+          return list({
+            file: item.path,
+            before: "",
+            after: "",
+            additions: item.added,
+            deletions: item.removed,
+            status: item.status,
+          })[0]
+        }
+
+        const content = await sdk.client.file
+          .read({ path: item.path })
+          .then((result) => result.data)
+          .catch(() => undefined)
+        if (!content || content.type !== "text") return
+
+        if (content.diff) {
+          return {
+            file: item.path,
+            patch: content.diff,
+            additions: item.added,
+            deletions: item.removed,
+            status: item.status,
+          }
+        }
+
+        if (item.status !== "added") return
+        return list({
+          file: item.path,
+          before: "",
+          after: content.content,
+          additions: item.added,
+          deletions: item.removed,
+          status: item.status,
+        })[0]
+      }),
+    )
+
+    return diffs.filter((item): item is VcsFileDiff => item !== undefined)
+  }
   const vcsQuery = createQuery(() => {
     const mode = vcsMode()
     const enabled = wantsReview() && sync().project?.vcs === "git"
@@ -688,19 +787,30 @@ export default function Page() {
       queryKey: [...vcsKey(), mode] as const,
       enabled,
       queryFn: mode
-        ? () =>
-            sdk()
-              .api.vcs.diff({ location: { directory: sdk().directory }, mode: mode === "git" ? "working" : mode })
-              .then((result) => result.data)
-              .catch((error) => {
-                console.debug("[session-review] failed to load vcs diff", { mode, error })
-                return []
-              })
+        ? async () => {
+            try {
+              if (mode === "git" && mobilePlatform()) {
+                const status = await sdk.client.file.status().then((result) => result.data ?? [])
+                if (setReviewLimit("git", status.length)) return []
+              }
+
+              const data = await sdk.client.vcs.diff({ mode }).then((result) => result.data ?? [])
+              const diffs = list(data)
+              if (setReviewLimit(mode, diffs.length)) return []
+              if (diffs.length > 0 || mode !== "git") return diffs
+              return fallbackGitDiff()
+            } catch (error) {
+              console.debug("[session-review] failed to load vcs diff", { mode, error })
+              return mode === "git" ? fallbackGitDiff() : []
+            }
+          }
         : skipToken,
     }
   })
   const refreshVcs = debounce(() => void queryClient.invalidateQueries({ queryKey: vcsKey() }), 100)
   const reviewDiffs = () => {
+    // UPSTREAM-DIVERGENCE: Mobile caps the number of diffs it will hydrate to avoid jank.
+    if (activeReviewLimit()) return []
     if (reviewMode() === "git" || reviewMode() === "branch")
       // avoids suspense
       return vcsQuery.isFetched ? (vcsQuery.data ?? []) : []
@@ -762,6 +872,14 @@ export default function Page() {
       console.debug("[session-review] failed to load bounded vcs diff", { mode, file, root, error })
     }
   }
+
+  createEffect(
+    on([sessionKey, wantsReview, () => store.changes] as const, ([, wants, changes]) => {
+      if (!wants) return
+      if (changes !== "git" && changes !== "branch") return
+      refreshVcs()
+    }),
+  )
 
   const newSessionWorktree = createMemo(() => {
     if (store.newSessionWorktree === "create") return "create"
@@ -875,6 +993,9 @@ export default function Page() {
   let scrollToEnd = () => {}
   let scrollMark = 0
   let messageMark = 0
+
+  // UPSTREAM-DIVERGENCE: The fork removed its earlier pull-to-refresh hook in favor of the titlebar
+  // refresh button, but still tracks scroll gestures to protect nested mobile scrolling behavior.
 
   const scrollGestureWindowMs = 250
 
@@ -1232,6 +1353,20 @@ export default function Page() {
   })
 
   const reviewEmpty = (input: { loadingClass: string; emptyClass: string }) => {
+    const limit = activeReviewLimit()
+    if (limit) {
+      return (
+        <div class={input.emptyClass}>
+          <div class="text-14-regular text-text-weak max-w-72">
+            {language.t("session.review.tooManyFilesMobile", {
+              count: limit.count,
+              limit: MOBILE_REVIEW_FILE_LIMIT,
+            })}
+          </div>
+        </div>
+      )
+    }
+
     if (reviewMode() === "git" || reviewMode() === "branch") {
       if (!reviewReady()) return <div class={input.loadingClass}>{language.t("session.review.loadingChanges")}</div>
       return empty(reviewEmptyText())
@@ -1469,6 +1604,48 @@ export default function Page() {
     requestAnimationFrame(() => attempt(0))
   })
 
+  createEffect(() => {
+    const id = params.id
+    if (!id) return
+
+    if (!wantsReview()) return
+    if (mobilePlatform() && store.changes !== "turn") return
+    if (mobilePlatform() && activeReviewLimit()) return
+    if (sync().data.session_diff[id] !== undefined) return
+    if (sync().status === "loading") return
+
+    void sync().session.sync(id, { force: true })
+  })
+
+  createEffect(
+    on(
+      () => [sessionKey(), wantsReview()] as const,
+      ([key, wants]) => {
+        if (diffFrame !== undefined) cancelAnimationFrame(diffFrame)
+        if (diffTimer !== undefined) window.clearTimeout(diffTimer)
+        diffFrame = undefined
+        diffTimer = undefined
+        if (!wants) return
+        if (mobilePlatform() && store.changes !== "turn") return
+        if (mobilePlatform() && activeReviewLimit()) return
+
+        const id = params.id
+        if (!id) return
+        if (!untrack(() => sync().data.session_diff[id] !== undefined)) return
+
+        diffFrame = requestAnimationFrame(() => {
+          diffFrame = undefined
+          diffTimer = window.setTimeout(() => {
+            diffTimer = undefined
+            if (sessionKey() !== key) return
+            void sync().session.sync(id, { force: true })
+          }, 0)
+        })
+      },
+      { defer: true },
+    ),
+  )
+
   let treeDir: string | undefined
   createEffect(() => {
     const dir = sdk().directory
@@ -1496,9 +1673,14 @@ export default function Page() {
     ),
   )
 
+  const mobile = platform.platform === "ios" || platform.platform === "android"
+
   const autoScroll = createAutoScroll({
     working: () => true,
-    overflowAnchor: "none",
+    overflowAnchor: "dynamic",
+    // UPSTREAM-DIVERGENCE: Mobile webviews report scrollTop with the opposite sign from desktop in this
+    // layout, so preserve the fork's reverseScrollTop flag when upstream tweaks timeline scrolling.
+    reverseScrollTop: !mobile,
   })
   createEffect(
     on(
@@ -1516,12 +1698,20 @@ export default function Page() {
   let fillFrame: number | undefined
 
   const jumpThreshold = (el: HTMLDivElement) => Math.max(400, el.clientHeight)
+  const distanceFromScrollBottom = (el: HTMLDivElement) => {
+    const max = Math.max(0, el.scrollHeight - el.clientHeight)
+
+    // UPSTREAM-DIVERGENCE: Keep bottom detection aligned with reverseScrollTop above. Desktop reports
+    // the bottom of the reversed timeline at scrollTop ~= 0, while mobile keeps normal positive offsets.
+    if (!mobile) return Math.abs(el.scrollTop)
+    return Math.max(0, max - el.scrollTop)
+  }
 
   const updateScrollState = (el: HTMLDivElement) => {
-    const max = el.scrollHeight - el.clientHeight
-    const distance = max - el.scrollTop
+    const max = Math.max(0, el.scrollHeight - el.clientHeight)
+    const distance = distanceFromScrollBottom(el)
     const overflow = max > 1
-    const bottom = !overflow || distance <= 2
+    const bottom = !overflow || distance <= 2 || !autoScroll.userScrolled()
     const jump = overflow && distance > jumpThreshold(el)
 
     if (ui.scroll.overflow === overflow && ui.scroll.bottom === bottom && ui.scroll.jump === jump) return
@@ -1950,9 +2140,7 @@ export default function Page() {
 
       const el = scroller
       const delta = next - dockHeight
-      const stick = el
-        ? !autoScroll.userScrolled() || el.scrollHeight - el.clientHeight - el.scrollTop < 10 + Math.max(0, delta)
-        : false
+      const stick = el ? !autoScroll.userScrolled() || distanceFromScrollBottom(el) < 10 + Math.max(0, delta) : false
 
       dockHeight = next
 
@@ -1999,7 +2187,23 @@ export default function Page() {
   )
 
   onMount(() => {
+    // UPSTREAM-DIVERGENCE: Listen for native resume hooks in addition to browser focus events so the
+    // shared session page can recover after iOS/Android background suspension.
+    const onResume = () => {
+      if (document.visibilityState === "hidden") return
+      refreshActiveSession()
+    }
+    const onVisibility = () => {
+      if (document.visibilityState !== "visible") return
+      onResume()
+    }
+
     makeEventListener(document, "keydown", handleKeyDown)
+    makeEventListener(window, "focus", onResume)
+    makeEventListener(window, "pageshow", onResume)
+    makeEventListener(window, "online", onResume)
+    makeEventListener(window, "opencode:resume", onResume)
+    makeEventListener(document, "visibilitychange", onVisibility)
   })
 
   onCleanup(() => {

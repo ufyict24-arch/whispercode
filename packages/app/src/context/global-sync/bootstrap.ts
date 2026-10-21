@@ -200,22 +200,40 @@ function mergeSession(setStore: SetStoreFunction<State>, session: Session) {
   })
 }
 
-function warmSessions(input: {
+export function warmSessions(input: {
   ids: string[]
   store: Store<State>
   setStore: SetStoreFunction<State>
   api: SessionApi
 }) {
   const known = new Set(input.store.session.map((item) => item.id))
+  const seen = new Set<string>()
+
+  const load = async (sessionID: string): Promise<void> => {
+    if (!sessionID || seen.has(sessionID)) return
+    seen.add(sessionID)
+
+    const existing = input.store.session.find((item) => item.id === sessionID)
+    if (existing) {
+      known.add(existing.id)
+      if (existing.parentID) await load(existing.parentID)
+      return
+    }
+
+    const session = normalizeSessionInfo(await retry(() => input.api.get({ sessionID })))
+    if (!session?.id) return
+    known.add(session.id)
+    mergeSession(input.setStore, session)
+    // UPSTREAM-DIVERGENCE: Mobile resume can restore permission/question requests after the app was
+    // suspended, so warm the full ancestor chain the session request tree needs to show prompts.
+    if (session.parentID) await load(session.parentID)
+  }
+
+  // UPSTREAM-DIVERGENCE: Fork warms missing ids *and* walks ancestors of already-known prompt
+  // sessions so mobile resume can rebuild the full request tree; upstream only warmed missing ids.
   const ids = [...new Set(input.ids)].filter((id) => !!id && !known.has(id))
-  if (ids.length === 0) return Promise.resolve()
-  return Promise.all(
-    ids.map((sessionID) =>
-      retry(() => input.api.get({ sessionID })).then((session) =>
-        mergeSession(input.setStore, normalizeSessionInfo(session)),
-      ),
-    ),
-  ).then(() => undefined)
+  const existing = [...new Set(input.ids)].filter((id) => !!id && known.has(id))
+  return Promise.all([...ids, ...existing].map(load)).then(() => undefined)
 }
 
 export const loadProvidersQuery = (

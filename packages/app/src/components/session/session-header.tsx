@@ -52,7 +52,7 @@ const OPEN_APPS = [
 ] as const
 
 type OpenApp = (typeof OPEN_APPS)[number]
-type OS = "macos" | "windows" | "linux" | "unknown"
+type OS = "macos" | "windows" | "linux" | "ios" | "android" | "unknown"
 
 const MAC_APPS = [
   {
@@ -165,6 +165,9 @@ export function SessionHeader() {
   const search = settings.visibility.search
   const status = settings.visibility.status
   const isDesktop = createMediaQuery("(min-width: 768px)")
+  // UPSTREAM-DIVERGENCE: The fork exposes extra titlebar affordances on mobile without affecting the
+  // desktop header flow that upstream continues to evolve.
+  const mobile = createMemo(() => platform.platform === "ios" || platform.platform === "android")
 
   const [exists, setExists] = createStore<Partial<Record<OpenApp, boolean>>>({
     finder: true,
@@ -286,6 +289,12 @@ export function SessionHeader() {
   onMount(() => {
     setCenterMount(document.getElementById("opencode-titlebar-center"))
   })
+  // UPSTREAM-DIVERGENCE: Mobile builds use a manual refresh button instead of the removed pull-to-
+  // refresh gesture so upstream session header changes must keep this fallback available.
+  const refresh = () => {
+    platform.haptic?.("light")
+    void platform.restart()
+  }
 
   return (
     <>
@@ -296,11 +305,14 @@ export function SessionHeader() {
               type="button"
               variant="ghost"
               size="small"
-              class="hidden md:flex w-[240px] max-w-full min-w-0 items-center gap-2 justify-between rounded-md border border-border-weak-base bg-surface-panel shadow-none cursor-default"
+              class="flex md:w-[240px] max-w-full min-w-0 pl-0.5 pr-2 items-center gap-2 justify-between rounded-md border border-border-weak-base bg-surface-panel shadow-none cursor-default"
               onClick={() => command.trigger("file.open")}
               aria-label={language.t("session.header.searchFiles")}
             >
-              <div class="flex min-w-0 flex-1 items-center overflow-visible">
+              <Icon name="magnifying-glass" size="small" class="md:hidden icon-base shrink-0 size-4" />
+              <span class="md:hidden text-12-regular text-text-weak">{language.t("common.search.placeholder")}</span>
+              <div class="hidden md:flex min-w-0 flex-1 items-center gap-1.5 overflow-visible">
+                <Icon name="magnifying-glass" size="small" class="icon-base shrink-0 size-4" />
                 <span class="flex-1 min-w-0 text-12-regular text-text-weak truncate text-left">
                   {language.t("session.header.search.placeholder", {
                     project: name(),
@@ -310,7 +322,7 @@ export function SessionHeader() {
 
               <Show when={hotkey()} keyed>
                 {(keybind) => (
-                  <Keybind class="shrink-0 !border-0 !bg-transparent !shadow-none px-0 text-text-weaker">
+                  <Keybind class="hidden md:flex shrink-0 !border-0 !bg-transparent !shadow-none px-0 text-text-weaker">
                     {keybind}
                   </Keybind>
                 )}
@@ -326,6 +338,18 @@ export function SessionHeader() {
               when={isV2}
               fallback={
                 <div class="flex items-center gap-2">
+                  <Show when={mobile()}>
+                    {/* UPSTREAM-DIVERGENCE: Preserve this mobile-only refresh button. It replaced the
+                        fork's earlier pull-to-refresh gesture in shared app code. */}
+                    <IconButton
+                      icon="refresh"
+                      variant="ghost"
+                      class="titlebar-icon w-6 h-6 p-0 box-border shrink-0"
+                      onClick={refresh}
+                      aria-label={language.t("session.header.refresh")}
+                      data-action="session-refresh"
+                    />
+                  </Show>
                   <Show when={projectDirectory()}>
                     <div class="hidden xl:flex items-center">
                       <Show

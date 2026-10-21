@@ -19,17 +19,14 @@ export type ScrollViewThumbVisibility = "hover" | "scroll"
 export interface ScrollViewProps extends ComponentProps<"div"> {
   viewportRef?: (el: HTMLDivElement) => void
   orientation?: "vertical" | "horizontal" // currently only vertical is fully implemented for thumb
-  /**
-   * `hover`: show while hovered or scrolling. `scroll`: show only while scrolling.
-   *
-   * In most cases, scrolling a container = hovering over it, so this change has no effect.
-   * This is a special case to account for the home page scroll, where scrolling a container != hovering over it
-   * */
   thumbVisibility?: ScrollViewThumbVisibility
   /** Mount the thumb into an external track. Scroll metrics still come from this ScrollView. */
   thumbContainer?: HTMLElement | Accessor<HTMLElement | undefined>
   /** Element whose hover reveals the thumb. Defaults to the ScrollView root when unset. */
   thumbHoverTarget?: HTMLElement | Accessor<HTMLElement | undefined>
+  // UPSTREAM-DIVERGENCE: Mobile fork reversed-scroll support (e.g. chat views) preserved on top of
+  // upstream's thumb refactor.
+  reverse?: boolean
 }
 
 export const scrollKey = (event: Pick<KeyboardEvent, "key" | "altKey" | "ctrlKey" | "metaKey" | "shiftKey">) => {
@@ -110,6 +107,7 @@ export function ScrollView(props: ScrollViewProps) {
       "thumbContainer",
       "thumbHoverTarget",
       "style",
+      "reverse",
     ],
     [
       "onScroll",
@@ -151,6 +149,18 @@ export function ScrollView(props: ScrollViewProps) {
   const thumbHeight = () => state.thumbHeight
   const thumbTop = () => state.thumbTop
   const showThumb = () => state.showThumb
+  const reverse = () => local.reverse === true
+  const mobile = () => {
+    const value = document.documentElement.dataset.platform
+    return value === "ios" || value === "android"
+  }
+  const scrollMax = () => Math.max(0, viewportRef.scrollHeight - viewportRef.clientHeight)
+  const scrollEndpoint = (edge: "start" | "end") => {
+    // UPSTREAM-DIVERGENCE: Desktop reversed views use negative scrollTop values, while iOS/Android
+    // webviews keep positive offsets even when the content is visually reversed.
+    if (reverse() && !mobile()) return edge === "start" ? -scrollMax() : 0
+    return edge === "start" ? 0 : scrollMax()
+  }
 
   let scrollIdleTimer: ReturnType<typeof setTimeout> | undefined
 
@@ -192,7 +202,11 @@ export function ScrollView(props: ScrollViewProps) {
     const maxScrollTop = scrollHeight - clientHeight
     const maxThumbTop = trackHeight - height
 
-    const top = maxScrollTop > 0 ? (scrollTop / maxScrollTop) * maxThumbTop : 0
+    const top = (() => {
+      if (maxScrollTop <= 0) return 0
+      if (!reverse() || mobile()) return (scrollTop / maxScrollTop) * maxThumbTop
+      return ((maxScrollTop + scrollTop) / maxScrollTop) * maxThumbTop
+    })()
 
     // Ensure thumb stays within bounds (shouldn't be necessary due to math above, but good for safety)
     const boundedTop = trackPadding + Math.max(0, Math.min(top, maxThumbTop))
@@ -314,11 +328,11 @@ export function ScrollView(props: ScrollViewProps) {
         break
       case "home":
         e.preventDefault()
-        viewportRef.scrollTo({ top: 0, behavior: "smooth" })
+        viewportRef.scrollTo({ top: scrollEndpoint("start"), behavior: "smooth" })
         break
       case "end":
         e.preventDefault()
-        viewportRef.scrollTo({ top: viewportRef.scrollHeight, behavior: "smooth" })
+        viewportRef.scrollTo({ top: scrollEndpoint("end"), behavior: "smooth" })
         break
       case "up":
         e.preventDefault()
@@ -349,6 +363,7 @@ export function ScrollView(props: ScrollViewProps) {
         ref={viewportRef}
         class="scroll-view__viewport"
         data-scrollable
+        data-reverse={reverse() ? "true" : undefined}
         onScroll={(e) => {
           updateThumb()
           markScrolling()

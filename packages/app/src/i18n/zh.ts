@@ -1,3 +1,6 @@
+// UPSTREAM-DIVERGENCE-FILE: Added after upstream sync 6b9ce5e63. Keep the WhisperCode mobile refresh,
+// phone settings tab, and push-notification keys when merging upstream locale updates.
+
 import { dict as en } from "./en"
 
 type Keys = keyof typeof en
@@ -768,6 +771,11 @@ export const dict = {
   "session.messages.loadEarlier": "加载更早的消息",
   "session.messages.loading": "正在加载消息...",
   "session.messages.jumpToLatest": "跳转到最新",
+  "voice.processing": "处理中...",
+  "voice.listeningFor": "正在聆听 {{label}}",
+  "voice.editLangInSettings": "可在设置中修改语言",
+  "voice.processingShort": "处理中",
+  "voice.stop": "停止",
   "session.context.addToContext": "将 {{selection}} 添加到上下文",
   "session.todo.title": "待办事项",
   "session.todo.collapse": "折叠",
@@ -802,6 +810,9 @@ export const dict = {
   "session.new.lastModified": "最后修改",
   "session.header.search.placeholder": "搜索 {{project}}",
   "session.header.searchFiles": "搜索文件",
+  // UPSTREAM-DIVERGENCE: Fork mobile builds add a manual session refresh action to replace the old
+  // pull-to-refresh path in shared UI.
+  "session.header.refresh": "刷新",
   "session.header.openIn": "打开方式",
   "session.header.open.action": "打开 {{app}}",
   "session.header.open.ariaLabel": "在 {{app}} 中打开",
@@ -879,9 +890,13 @@ export const dict = {
 
   "settings.section.desktop": "桌面",
   "settings.section.server": "服务器",
+  // UPSTREAM-DIVERGENCE: Fork-only settings navigation labels for the WhisperCode phone tab.
+  "settings.section.whispercode": "WhisperCode",
+  "settings.section.mobile": "移动端",
 
   "settings.tab.general": "通用",
   "settings.tab.shortcuts": "快捷键",
+  "settings.tab.phone": "手机",
 
   "settings.desktop.section.wsl": "WSL",
   "settings.desktop.wsl.title": "WSL 集成",
@@ -1014,6 +1029,93 @@ export const dict = {
   "settings.general.notifications.permissions.description": "当需要权限时显示系统通知",
   "settings.general.notifications.errors.title": "错误",
   "settings.general.notifications.errors.description": "发生错误时显示系统通知",
+  // UPSTREAM-DIVERGENCE: Fork-only mobile push permission, relay, pairing, diagnostics, and routing
+  // strings used by the shared app package and native wrappers.
+  "settings.general.notifications.push.permission.title": "推送权限",
+  "settings.general.notifications.push.permission.pending": "正在检查 WhisperCode 能否在此 iPhone 上显示通知",
+  "settings.general.notifications.push.permission.notDetermined": "启用通用提醒，以接收回复、审批、问题和错误通知",
+  "settings.general.notifications.push.permission.denied": "请在 iPhone 设置应用中为 WhisperCode 开启通知",
+  "settings.general.notifications.push.permission.registering": "权限已授予。WhisperCode 正在完成 Apple 注册。",
+  "settings.general.notifications.push.permission.authorized": "此 iPhone 已准备好接收通用提醒",
+  "settings.general.notifications.push.permission.provisional": "此 iPhone 已准备好接收静默通用提醒",
+  "settings.general.notifications.push.permission.ephemeral": "此 iPhone 已准备好接收临时通用提醒",
+  "settings.general.notifications.push.permission.unsupported": "此设备不支持通知",
+  "settings.general.notifications.push.generic.title": "隐私",
+  "settings.general.notifications.push.generic.description":
+    "默认情况下提醒内容保持通用。提示文本、回复文本、文件路径和会话标题保留在设备上。",
+  "settings.general.notifications.push.generic.value": "仅通用",
+  "settings.general.notifications.push.test.title": "发送测试通知",
+  "settings.general.notifications.push.test.description":
+    "从已连接的 OpenCode 主机发送中继推送提醒，并验证点击后能否返回 WhisperCode",
+  "settings.general.notifications.push.relay.title": "推送中继",
+  "settings.general.notifications.push.relay.description.custom":
+    "正在使用自定义中继 URL 进行配对和后台推送投递：{url}",
+  "settings.general.notifications.push.relay.description.guess": "默认使用已连接服务器主机的 8787 端口：{url}",
+  "settings.general.notifications.push.relay.description.empty":
+    "请先连接到服务器，或输入自定义中继 URL 进行配对和后台推送投递。",
+  "settings.general.notifications.push.relay.action.auto": "使用默认",
+  "settings.general.notifications.push.pairing.title": "手机配对",
+  "settings.general.notifications.push.pairing.pending": "正在检查此 iPhone 是否已配对到推送通道。",
+  "settings.general.notifications.push.pairing.server": "请先连接到 OpenCode 服务器，以便 WhisperCode 完成配对。",
+  "settings.general.notifications.push.pairing.unpaired":
+    "点击「设置」一次，WhisperCode 将请求权限、安装主机集成并自动配对此 iPhone。",
+  "settings.general.notifications.push.pairing.paired":
+    "此 iPhone 已与你的 OpenCode 主机配对。如果连接偏移，WhisperCode 将自动修复。",
+  "settings.general.notifications.push.pairing.retry": "WhisperCode 正在为此 iPhone 完成主机配对，将持续重试直到成功。",
+  "settings.general.notifications.push.pairing.step.permission": "正在从 iPhone 设置请求通知权限。",
+  "settings.general.notifications.push.pairing.step.register": "正在等待 Apple 推送注册完成。",
+  "settings.general.notifications.push.pairing.step.begin": "正在为此 iPhone 准备安全配对请求。",
+  "settings.general.notifications.push.pairing.step.claim": "正在将此 iPhone 连接到 OpenCode 主机。",
+  "settings.general.notifications.push.pairing.step.finish": "正在完成此 iPhone 的配对。",
+  "settings.general.notifications.push.pairing.action.setup": "设置",
+  "settings.general.notifications.push.pairing.action.finish": "完成设置",
+  "settings.general.notifications.push.pairing.action.repair": "修复",
+  "settings.general.notifications.push.pairing.action.pairing": "配对中...",
+  "settings.general.notifications.push.pairing.action.clear": "移除配对",
+  "settings.general.notifications.push.pairing.action.clearing": "正在移除...",
+  "settings.general.notifications.push.pairing.toast.cleared.title": "配对已移除",
+  "settings.general.notifications.push.pairing.toast.cleared.description": "已从此 iPhone 移除存储的推送通道凭据。",
+  "settings.general.notifications.push.pairing.toast.paired.title": "iPhone 已配对",
+  "settings.general.notifications.push.pairing.toast.paired.description":
+    "WhisperCode 现在可以保持此 iPhone 与 OpenCode 主机的连接以进行推送投递。",
+  "settings.general.notifications.push.action.enable": "启用",
+  "settings.general.notifications.push.action.openSettings": "打开设置",
+  "settings.general.notifications.push.action.enabled": "已启用",
+  "settings.general.notifications.push.action.unavailable": "不可用",
+  "settings.general.notifications.push.action.checking": "检查中...",
+  "settings.general.notifications.push.action.test": "发送测试",
+  "settings.general.notifications.push.action.sending": "发送中...",
+  "settings.general.notifications.push.host.title": "主机集成",
+  "settings.general.notifications.push.host.description.missing":
+    "请在已连接的 OpenCode 主机上安装社区插件，以便转发通用的推送事件。",
+  "settings.general.notifications.push.host.description.installed": "社区插件已列在此主机的 OpenCode 全局配置中。",
+  "settings.general.notifications.push.host.description.updating": "正在更新主机插件的 OpenCode 全局配置。",
+  "settings.general.notifications.push.host.action.install": "添加到配置",
+  "settings.general.notifications.push.host.action.installing": "安装中...",
+  "settings.general.notifications.push.host.action.copy": "复制命令",
+  "settings.general.notifications.push.host.action.copying": "复制中...",
+  "settings.general.notifications.push.host.action.remove": "移除",
+  "settings.general.notifications.push.host.action.removing": "移除中...",
+  "settings.general.notifications.push.host.toast.installed.title": "主机插件已添加",
+  "settings.general.notifications.push.host.toast.installed.description":
+    "OpenCode 全局配置现已包含 WhisperCode 推送插件。",
+  "settings.general.notifications.push.host.toast.removed.title": "主机插件已移除",
+  "settings.general.notifications.push.host.toast.removed.description":
+    "OpenCode 全局配置不再包含 WhisperCode 推送插件。",
+  "settings.general.notifications.push.host.toast.copied.title": "安装命令已复制",
+  "settings.general.notifications.push.host.toast.copied.description": "在托管 OpenCode 的机器上运行已复制的命令。",
+  "settings.general.notifications.push.host.toast.copyFailed.title": "无法复制安装命令",
+  "settings.general.notifications.push.host.toast.copyFailed.description":
+    "请从 WhisperCode 手动复制命令并在 OpenCode 主机上运行。",
+  "settings.general.notifications.push.toast.sent.title": "测试通知已安排",
+  "settings.general.notifications.push.toast.sent.description":
+    "锁定你的 iPhone 或保持应用打开，以验证横幅和点击流程。",
+  "settings.general.notifications.push.toast.failed.title": "无法发送测试通知",
+  "settings.general.notifications.push.toast.failed.description": "请为 WhisperCode 启用 iPhone 通知后重试。",
+  "notification.push.route.title": "OpenCode 通知",
+  "notification.push.route.server": "WhisperCode 暂时无法将此通知匹配到已连接的服务器。",
+  "notification.push.route.session": "WhisperCode 暂时无法恢复该会话，已打开服务器主页。",
+  "settings.whispercode.mobile.unavailable": "此标签页在 WhisperCode 移动端版本中可用。",
   "settings.general.sounds.agent.title": "智能体",
   "settings.general.sounds.agent.description": "当智能体完成或需要注意时播放声音",
   "settings.general.sounds.permissions.title": "权限",

@@ -544,9 +544,10 @@ export function removePersisted(
   if (target.draft && platform?.draftStore) {
     void platform.draftStore.removeItem(`${target.storage ?? "default"}:${target.key}`)
   }
-  const isDesktop = platform?.platform === "desktop" && !!platform.storage
+  // UPSTREAM-DIVERGENCE: treat all non-web platforms (ios/android as well as desktop) as async storage.
+  const useAsync = platform?.platform !== "web" && !!platform?.storage
 
-  if (isDesktop) {
+  if (useAsync) {
     void platform.storage?.(target.storage)?.removeItem(target.key)
     for (const storage of target.legacyStorageNames ?? []) {
       void platform.storage?.(storage)?.removeItem(target.key)
@@ -577,6 +578,8 @@ export function persisted<T>(
   const legacy = config.legacy ?? []
 
   const isDesktop = platform.platform === "desktop" && !!platform.storage
+  // UPSTREAM-DIVERGENCE: ios/android are non-web + non-desktop but still use async storage.
+  const useAsync = platform.platform !== "web" && !!platform.storage
   const draft = config.draft ? platform.draftStore : undefined
 
   const currentStorage = (() => {
@@ -588,13 +591,13 @@ export function persisted<T>(
         removeItem: (key: string) => draft.removeItem(prefix + key),
       } satisfies AsyncStorage
     }
-    if (isDesktop) return platform.storage?.(config.storage)
+    if (useAsync) return platform.storage?.(config.storage)
     if (!config.storage) return localStorageDirect()
     return localStorageWithPrefix(config.storage)
   })()
 
   const legacyStorage = (() => {
-    if (!isDesktop) return localStorageDirect()
+    if (!useAsync) return localStorageDirect()
     if (!config.storage) return platform.storage?.()
     return platform.storage?.(LEGACY_STORAGE)
   })()
@@ -602,7 +605,7 @@ export function persisted<T>(
   const legacyStorageNames = config.legacyStorageNames ?? []
 
   const storage = (() => {
-    if (!isDesktop && !draft) {
+    if (!useAsync && !draft) {
       const current = currentStorage as SyncStorage
       const legacyStore = legacyStorage as SyncStorage
       const legacyStores = legacyStorageNames.map(localStorageWithPrefix)

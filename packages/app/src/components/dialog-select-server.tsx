@@ -683,6 +683,7 @@ export function ServerConnectionList(props: { controller: ReturnType<typeof useS
 
 export function ServerConnectionForm(props: { controller: ReturnType<typeof useServerManagementController> }) {
   const language = useLanguage()
+  const platform = usePlatform()
 
   return (
     <div class="flex flex-1 min-h-0 flex-col gap-4">
@@ -716,6 +717,22 @@ export function ServerConnectionForm(props: { controller: ReturnType<typeof useS
               ? language.t("dialog.server.add.button")
               : language.t("common.save")}
         </Button>
+        <Show when={platform.platform === "ios" || platform.platform === "android"}>
+          {/* UPSTREAM-DIVERGENCE: Keep the mobile-only server help copy in the shared server picker
+              so iOS/Android users can recover the host setup workflow after future upstream UI merges. */}
+          <p class="text-text-dimmed text-12-regular mt-2">
+            Can't find your server? Make sure you're serving with:{" "}
+            <code class="bg-surface-raised-base text-text-secondary-base px-1.5 py-0.5 rounded-sm break-all">
+              opencode web --hostname 0.0.0.0
+            </code>{" "}
+            <a
+              class="external-link text-text-link underline"
+              href="https://github.com/DNGriffin/whispercode?tab=readme-ov-file#quick-start"
+            >
+              Quick Start Guide
+            </a>
+          </p>
+        </Show>
       </div>
     </div>
   )

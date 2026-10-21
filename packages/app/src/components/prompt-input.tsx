@@ -51,7 +51,16 @@ import { usePermission } from "@/context/permission"
 import { useLanguage } from "@/context/language"
 import { usePlatform } from "@/context/platform"
 import { createSessionTabs } from "@/pages/session/helpers"
-import { createTextFragment, getCursorPosition, setCursorPosition, setRangeEdge } from "./prompt-input/editor-dom"
+import {
+  createTextFragment,
+  getCursorPosition,
+  getDeleteWordRange,
+  getEditorText,
+  getSelectionRange,
+  setCursorPosition,
+  setRangeEdge,
+  setSelectionRange,
+} from "./prompt-input/editor-dom"
 import { createPromptAttachments } from "./prompt-input/attachments"
 import { ACCEPTED_FILE_TYPES, pickAttachmentFiles } from "./prompt-input/files"
 import {
@@ -85,6 +94,9 @@ import type { ReferenceInfo } from "@opencode-ai/sdk/v2/client"
 
 export { createPromptInputHistory }
 export type { PromptInputControls, PromptInputHistory, PromptInputProps, PromptInputState, PromptInputSubmission }
+
+// UPSTREAM-DIVERGENCE-FILE: Prompt input carries fork-only mobile keyboard affordances added after
+// upstream sync 6b9ce5e63. Preserve these handlers when upstream rewrites editor behavior.
 
 const EXAMPLES = [
   "prompt.example.1",
@@ -549,6 +561,61 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
     closePopover()
     setComposing(false)
   }
+
+  // UPSTREAM-DIVERGENCE: Mobile keyboards dispatch a custom delete-word event because iOS/Android do
+  // not reliably map the upstream desktop shortcuts onto the contenteditable prompt.
+  const deleteWord = () => {
+    if (!editorRef) return
+
+    const active = document.activeElement
+    const focused = active instanceof HTMLElement && active === editorRef
+    const selected = getSelectionRange(editorRef)
+    if (!focused && !selected) return
+
+    const text = getEditorText(editorRef)
+    const span = getDeleteWordRange(text, selected)
+    if (!span) return
+
+    const selection = window.getSelection()
+    if (!selection) return
+
+    const range = document.createRange()
+    editorRef.focus()
+    setSelectionRange(editorRef, range, span.start, span.end)
+    selection.removeAllRanges()
+    selection.addRange(range)
+    range.deleteContents()
+    setCursorPosition(editorRef, span.start)
+    handleInput()
+  }
+
+  createEffect(() => {
+    const handleTranscription = (event: Event) => {
+      if (!(event instanceof CustomEvent)) return
+      const detail = event.detail as { text?: string; isFinal?: boolean } | undefined
+      if (!detail?.text) return
+      if (detail.isFinal === false) return
+      if (!editorRef) return
+
+      editorRef.focus()
+      setCursorPosition(editorRef, promptLength(prompt.current()))
+      addPart({ type: "text", content: detail.text, start: 0, end: 0 })
+    }
+
+    window.addEventListener("opencode:transcription", handleTranscription)
+    onCleanup(() => window.removeEventListener("opencode:transcription", handleTranscription))
+  })
+
+  createEffect(() => {
+    // UPSTREAM-DIVERGENCE: Listen for the native mobile keyboard accessory action that requests the
+    // shared prompt editor to delete the previous word without forking this component.
+    const handleDeleteWord = () => {
+      deleteWord()
+    }
+
+    window.addEventListener("opencode:keyboard-delete-word", handleDeleteWord)
+    onCleanup(() => window.removeEventListener("opencode:keyboard-delete-word", handleDeleteWord))
+  })
 
   const handleCompositionStart = () => {
     setComposing(true)
@@ -1501,7 +1568,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           onMouseDown={(e) => {
             const target = e.target
             if (!(target instanceof HTMLElement)) return
-            if (target.closest('[data-action="prompt-attach"], [data-action="prompt-submit"]')) {
+            if (
+              target.closest(
+                '[data-action="prompt-attach"], [data-action="prompt-voice"], [data-action="prompt-permissions"], [data-action="prompt-submit"]',
+              )
+            ) {
               return
             }
             editorRef?.focus()
@@ -1575,6 +1646,31 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
             />
 
             <div class="flex items-center gap-1 pointer-events-auto">
+              <Show
+                when={
+                  store.mode === "normal" &&
+                  (platform.platform === "ios" || platform.platform === "android") &&
+                  platform.startVoiceInput
+                }
+              >
+                <Tooltip placement="top" value="Voice input">
+                  <Button
+                    data-action="prompt-voice"
+                    type="button"
+                    variant="ghost"
+                    class="size-8 p-0"
+                    onClick={() => void platform.startVoiceInput?.()}
+                    disabled={
+                      platform.voiceStatus
+                        ? platform.voiceStatus().state === "recording" || platform.voiceStatus().state === "processing"
+                        : false
+                    }
+                    aria-label="Voice input"
+                  >
+                    <Icon name="microphone" class="size-5" />
+                  </Button>
+                </Tooltip>
+              </Show>
               <Tooltip placement="top" inactive={!working() && blank()} value={tip()}>
                 <IconButton
                   data-action="prompt-submit"
@@ -1593,7 +1689,7 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
           <div class="pointer-events-none absolute bottom-2 left-2">
             <div
               aria-hidden={store.mode !== "normal"}
-              class="pointer-events-auto"
+              class="pointer-events-auto flex h-8 items-center gap-1"
               style={{
                 "pointer-events": buttonsSpring() > 0.5 ? "auto" : "none",
               }}
@@ -1615,6 +1711,44 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                   aria-label={language.t("prompt.action.attachFile")}
                 >
                   <Icon name="plus" class="size-4.5" />
+                </Button>
+              </TooltipKeybind>
+              <TooltipKeybind
+                placement="top"
+                gutter={8}
+                title={language.t(
+                  accepting() ? "command.permissions.autoaccept.disable" : "command.permissions.autoaccept.enable",
+                )}
+                keybind={command.keybind("permissions.autoaccept")}
+              >
+                <Button
+                  data-action="prompt-permissions"
+                  type="button"
+                  variant="ghost"
+                  onClick={() => {
+                    if (!params.id) {
+                      permission.toggleAutoAcceptDirectory(sdk.directory)
+                      return
+                    }
+                    permission.toggleAutoAccept(params.id, sdk.directory)
+                  }}
+                  classList={{
+                    "size-8 p-0 flex items-center justify-center": true,
+                    "text-text-base": !accepting(),
+                    "hover:bg-surface-success-base": accepting(),
+                  }}
+                  aria-label={
+                    accepting()
+                      ? language.t("command.permissions.autoaccept.disable")
+                      : language.t("command.permissions.autoaccept.enable")
+                  }
+                  aria-pressed={accepting()}
+                >
+                  <Icon
+                    name="chevron-double-right"
+                    size="small"
+                    classList={{ "text-icon-success-base": accepting() }}
+                  />
                 </Button>
               </TooltipKeybind>
             </div>
@@ -1707,7 +1841,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                                   style={{ "will-change": "opacity", transform: "translateZ(0)" }}
                                 />
                               </Show>
-                              <span class="truncate">
+                              <span
+                                // UPSTREAM-DIVERGENCE: Clamp the model label more aggressively on mobile so
+                                // the fork's native wrappers keep the prompt toolbar usable in narrow widths.
+                                class="block min-w-0 max-w-[8ch] truncate"
+                              >
                                 {props.controls.model.selection.current()?.name ??
                                   language.t("dialog.model.select.title")}
                               </span>
@@ -1740,7 +1878,11 @@ export const PromptInput: Component<PromptInputProps> = (props) => {
                                     style={{ "will-change": "opacity", transform: "translateZ(0)" }}
                                   />
                                 </Show>
-                                <span class="truncate">
+                                <span
+                                  // UPSTREAM-DIVERGENCE: Clamp the model label more aggressively on mobile so
+                                  // the fork's native wrappers keep the prompt toolbar usable in narrow widths.
+                                  class="block min-w-0 max-w-[8ch] truncate"
+                                >
                                   {props.controls.model.selection.current()?.name ??
                                     language.t("dialog.model.select.title")}
                                 </span>

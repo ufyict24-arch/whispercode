@@ -20,12 +20,14 @@ export function SessionComposerRegion(props: {
     return revert?.items.length ? revert : undefined
   }
 
+  // UPSTREAM-DIVERGENCE: Mobile chat keeps the composer closer to the bottom edge (pb-1 on small
+  // screens) to avoid a tall empty chin while preserving upstream's new-layout background tokens.
   return (
     <div
       ref={controller.setDockRef}
       data-component="session-prompt-dock"
       classList={{
-        "w-full shrink-0 flex flex-col justify-center items-center pb-3 pointer-events-none": true,
+        "w-full shrink-0 flex flex-col justify-center items-center pb-1 md:pb-3 pointer-events-none": true,
         "bg-v2-background-bg-base": settings.general.newLayoutDesigns(),
         "bg-background-stronger": !settings.general.newLayoutDesigns(),
       }}

@@ -26,8 +26,8 @@ import { Tooltip } from "@opencode-ai/ui/tooltip"
 import { DropdownMenu } from "@opencode-ai/ui/dropdown-menu"
 import { Dialog } from "@opencode-ai/ui/dialog"
 import { getFilename } from "@opencode-ai/core/util/path"
-import { Session } from "@opencode-ai/sdk/v2/client"
-import { usePlatform } from "@/context/platform"
+import { Session, type Message } from "@opencode-ai/sdk/v2/client"
+import { usePlatform, type PushPrefs } from "@/context/platform"
 import { useSettings } from "@/context/settings"
 import { createStore, produce, reconcile } from "solid-js/store"
 import { DragDropProvider, DragDropSensors, DragOverlay, SortableProvider, closestCenter } from "@thisbeyond/solid-dnd"
@@ -44,6 +44,7 @@ import { Binary } from "@opencode-ai/core/util/binary"
 import { retry } from "@opencode-ai/core/util/retry"
 import { playSoundById } from "@/utils/sound"
 import { createAim } from "@/utils/aim"
+import { setNavigate, setNotificationOpen, stashNotificationOpen, type PushOpen } from "@/utils/notification-click"
 import { Worktree as WorktreeState } from "@/utils/worktree"
 import { setSessionHandoff } from "@/pages/session/handoff"
 import { SessionRouteKey, SessionStateKey } from "@/utils/server-scope"
@@ -83,6 +84,10 @@ import {
 import { ProjectDragOverlay, SortableProject, type ProjectSidebarContext } from "./layout/sidebar-project"
 import { SidebarContent } from "./layout/sidebar-shell"
 
+// UPSTREAM-DIVERGENCE-FILE: Layout owns the fork's push-routing behavior after upstream sync
+// 6b9ce5e63. Future merges must preserve the channel-to-server map, notification-open handoff, and
+// sync of server-side push preferences from shared settings state.
+
 export default function LegacyLayout(props: ParentProps) {
   const serverSDK = useServerSDK()
   const [store, setStore, , ready] = persisted(
@@ -96,6 +101,14 @@ export default function LegacyLayout(props: ParentProps) {
       workspaceBranchName: {} as Record<string, Record<string, string>>,
       workspaceExpanded: {} as Record<string, boolean>,
       gettingStartedDismissed: false,
+    }),
+  )
+  // UPSTREAM-DIVERGENCE: Persist channel routing so push taps from iOS can reopen the matching server
+  // even when multiple hosts share this app instance.
+  const [pushRoute, setPushRoute] = persisted(
+    Persist.global("push.route", ["push.route.v1"]),
+    createStore({
+      channel: {} as Record<string, ServerConnection.Key>,
     }),
   )
 
@@ -144,6 +157,101 @@ export default function LegacyLayout(props: ParentProps) {
   }
   const colorSchemeLabel = (scheme: ColorScheme) => language.t(colorSchemeKey[scheme])
   const currentDir = createMemo(() => route().dir)
+  // UPSTREAM-DIVERGENCE: Mirror the existing notification toggles into fork-only relay prefs so the
+  // host plugin and native push layer stay in sync with the web app's settings UI.
+  const pushPrefs = createMemo<PushPrefs>(() => ({
+    complete: settings.notifications.agent(),
+    approval: settings.notifications.permissions(),
+    question: settings.notifications.agent(),
+    error: settings.notifications.errors(),
+  }))
+  let prefsSig: string | undefined
+
+  createEffect(() => {
+    // UPSTREAM-DIVERGENCE: Only sync relay prefs after a mobile device is paired; upstream web/desktop
+    // builds do not know about relay-backed push delivery.
+    const syncPrefs = platform.setPushPreferences
+    const paired = platform.pushState?.()?.paired === true
+    const value = pushPrefs()
+    if (!syncPrefs || !paired) {
+      prefsSig = undefined
+      return
+    }
+    const next = JSON.stringify(value)
+    if (next === prefsSig) return
+    prefsSig = next
+    void syncPrefs(value).catch(() => undefined)
+  })
+
+  createEffect(() => {
+    // UPSTREAM-DIVERGENCE: iOS exposes a stable channel identifier that we map back to the active
+    // server so background notification taps can resume the correct host later.
+    if (platform.platform !== "ios") return
+    const channel = platform.pushState?.()?.channel
+    const key = server.key
+    if (!channel || !key) return
+    setPushRoute("channel", channel, key)
+  })
+
+  async function openPush(value: PushOpen) {
+    // UPSTREAM-DIVERGENCE: Channel-aware routing is fork-only. Preserve the server handoff fallback
+    // logic so push taps can recover across server switches and cold starts.
+    const mapped = value.channel ? pushRoute.channel[value.channel] : undefined
+    if (mapped && mapped !== server.key) {
+      const known = server.list.some((item) => ServerConnection.key(item) === mapped)
+      if (known) {
+        stashNotificationOpen(value)
+        server.setActive(mapped)
+        return
+      }
+    }
+
+    if (value.channel && !mapped) {
+      navigateWithSidebarReset("/")
+      showToast({
+        title: language.t("notification.push.route.title"),
+        description: language.t("notification.push.route.server"),
+      })
+      return
+    }
+
+    if (value.href) {
+      navigateWithSidebarReset(value.href)
+      return
+    }
+
+    if (value.session) {
+      const session = await globalSDK.client.session
+        .get({ sessionID: value.session })
+        .then((x) => x.data)
+        .catch(() => undefined)
+      if (session?.directory) {
+        layout.projects.open(session.directory)
+        server.projects.touch(session.directory)
+        navigateWithSidebarReset(`/${base64Encode(session.directory)}/session/${session.id}`)
+        return
+      }
+    }
+
+    navigateWithSidebarReset("/")
+    showToast({
+      title: language.t("notification.push.route.title"),
+      description: language.t("notification.push.route.session"),
+    })
+  }
+
+  onMount(() => {
+    // UPSTREAM-DIVERGENCE: The notification click bridge is initialized from Layout because it needs
+    // live router state plus server/layout context to reconstruct push deep links.
+    setNavigate(navigate)
+    setNotificationOpen((value) => {
+      void openPush(value)
+    })
+    onCleanup(() => {
+      setNavigate(undefined as any)
+      setNotificationOpen(undefined)
+    })
+  })
 
   const [state, setState] = createStore({
     autoselect: !initialDirectory,
@@ -446,13 +554,17 @@ export default function LegacyLayout(props: ParentProps) {
             void playSoundById(settings.sounds.permissions())
           }
           if (settings.notifications.permissions()) {
-            void platform.notify(title, description, () => navigate(href))
+            // UPSTREAM-DIVERGENCE: Preserve the notification kind metadata; native mobile builds use
+            // it to send the correct generic push payload while upstream web simply ignores it.
+            void platform.notify(title, description, href, { kind: "approval" })
           }
         }
 
         if (e.details.type === "question.asked") {
           if (settings.notifications.agent()) {
-            void platform.notify(title, description, () => navigate(href))
+            // UPSTREAM-DIVERGENCE: Questions are routed as a distinct push kind so the mobile fork can
+            // keep generic alerts while still reopening the right context on tap.
+            void platform.notify(title, description, href, { kind: "question" })
           }
         }
 

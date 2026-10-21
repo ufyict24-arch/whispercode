@@ -1,8 +1,12 @@
 import { createStore, reconcile } from "solid-js/store"
 import { batch, createEffect, createMemo, createSignal, onCleanup } from "solid-js"
 import { createSimpleContext } from "@opencode-ai/ui/context"
+import { usePlatform } from "@/context/platform"
 import { persisted } from "@/utils/persist"
 import { usePlatform } from "@/context/platform"
+
+// UPSTREAM-DIVERGENCE-FILE: This file was updated after upstream sync 6b9ce5e63 to add the speech locale
+// settings surface plus platform pushdown/pull of speech locale for WhisperCode mobile voice input flows.
 
 export interface NotificationSettings {
   agent: boolean
@@ -52,6 +56,9 @@ export interface Settings {
   }
   notifications: NotificationSettings
   sounds: SoundSettings
+  speech: {
+    locale: string
+  }
 }
 
 export const monoDefault = "System Mono"
@@ -219,6 +226,9 @@ const defaultSettings: Settings = {
     errorsEnabled: true,
     errors: "nope-03",
   },
+  speech: {
+    locale: "en-US",
+  },
 }
 
 function withFallback<T>(read: () => T | undefined, fallback: T) {
@@ -353,6 +363,17 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
     createEffect(() => {
       if (store.general?.followup !== "queue") return
       setStore("general", "followup", "steer")
+    })
+
+    createEffect(() => {
+      const locale = store.speech?.locale ?? defaultSettings.speech.locale
+      if (!platform.setSpeechLocale) return
+      void Promise.resolve(platform.setSpeechLocale(locale))
+        .then((applied) => {
+          if (typeof applied !== "string" || applied === locale) return
+          setStore("speech", "locale", applied)
+        })
+        .catch(() => undefined)
     })
 
     return {
@@ -540,6 +561,12 @@ export const { use: useSettings, provider: SettingsProvider } = createSimpleCont
         errors: withFallback(() => store.sounds?.errors, defaultSettings.sounds.errors),
         setErrors(value: string) {
           setStore("sounds", "errors", value)
+        },
+      },
+      speech: {
+        locale: withFallback(() => store.speech?.locale, defaultSettings.speech.locale),
+        setLocale(value: string) {
+          setStore("speech", "locale", value)
         },
       },
     }
