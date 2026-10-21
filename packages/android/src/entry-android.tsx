@@ -193,7 +193,7 @@ const App = () => {
     platform: "android",
     os: "android",
     version: pkg.version,
-    openLink: (url: string) => {
+    openExternal: (url: string) => {
       void openUrl(url).catch(() => undefined)
     },
     notify: async (title: string, description?: string, href?: string, opts?: unknown) => {
@@ -211,8 +211,6 @@ const App = () => {
         )
         .catch(() => undefined)
     },
-    back: () => window.history.back(),
-    forward: () => window.history.forward(),
     restart: async () => window.location.reload(),
     voiceStatus: voice,
     startVoiceInput,
@@ -266,7 +264,7 @@ const App = () => {
       const link = (event.target as HTMLElement | null)?.closest("a.external-link") as HTMLAnchorElement | null
       if (!link?.href) return
       event.preventDefault()
-      platform.openLink(link.href)
+      platform.openExternal(link.href)
     }
 
     const onFocus = () => emitResume()
